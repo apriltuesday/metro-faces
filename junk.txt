@@ -1,0 +1,92 @@
+Format: Dictionary
+Key (url of metadata category) -> list of triples (Type, Value, Dict of attributes)
+
+Important:
+u'http://www.metadataworkinggroup.com/schemas/regions/' == face regions:
+							Name
+							stArea:x, stArea:y
+							stArea:w, stArea:h
+u'http://ns.adobe.com/exif/1.0/' == exif data:
+				 DateTimeOriginal
+				 PixelXDimension, PixelYDimension
+
+Note regions can be Face|Pet|Focus|BarCode -- probably none of the others will ever appear
+The [#] is the index... ughhhhhh
+{
+u'http://www.metadataworkinggroup.com/schemas/regions/':
+[
+(u'mwg-rs:Regions', u''
+(u'mwg-rs:Regions/mwg-rs:RegionList', u''
+(u'mwg-rs:Regions/mwg-rs:RegionList[1]', u''
+(u'mwg-rs:Regions/mwg-rs:RegionList[1]/mwg-rs:Name', u'April Shen'
+(u'mwg-rs:Regions/mwg-rs:RegionList[1]/mwg-rs:Type', u'Face'
+(u'mwg-rs:Regions/mwg-rs:RegionList[1]/mwg-rs:Area', u''
+(u'mwg-rs:Regions/mwg-rs:RegionList[1]/mwg-rs:Area/stArea:x', u'0.519857'
+(u'mwg-rs:Regions/mwg-rs:RegionList[1]/mwg-rs:Area/stArea:y', u'0.436279'
+(u'mwg-rs:Regions/mwg-rs:RegionList[1]/mwg-rs:Area/stArea:w', u'0.0332031'
+(u'mwg-rs:Regions/mwg-rs:RegionList[1]/mwg-rs:Area/stArea:h', u'0.0297852'
+(u'mwg-rs:Regions/mwg-rs:RegionList[1]/mwg-rs:Area/stArea:unit', u'normalized'
+]
+
+u'http://purl.org/dc/elements/1.1/':
+[
+(u'dc:creator', u''
+(u'dc:creator[1]', u'Picasa'
+]
+
+u'http://ns.adobe.com/photoshop/1.0/':
+[
+(u'photoshop:DateCreated', u'2011-10-09T13:57:53', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False})
+]
+
+u'http://ns.adobe.com/exif/1.0/': [
+(u'exif:ColorSpace', u'0', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:PixelXDimension', u'1536', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:PixelYDimension', u'2048', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:ExposureTime', u'1/20', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:FNumber', u'265/100', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:ExposureProgram', u'3', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:ShutterSpeedValue', u'432/100', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:ApertureValue', u'281/100', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:BrightnessValue', u'287/100', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:ExposureBiasValue', u'0/100', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:MaxApertureValue', u'281/100', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:MeteringMode', u'2', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:FocalLength', u'397/100', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:ExposureMode', u'0', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:WhiteBalance', u'0', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:SceneCaptureType', u'0', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:ImageUniqueID', u'e66bb1c13c641a152ce274c6f6107e34', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:DateTimeOriginal', u'2011-10-09T13:57:53', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:ISOSpeedRatings', u'', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': True, 'ARRAY_IS_ORDERED': True, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:ISOSpeedRatings[1]', u'64', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:ExifVersion', u'0220', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:FlashpixVersion', u'0100', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:UserComment', u'', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': True, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': True, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': True, 'ARRAY_IS_ORDERED': True, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:UserComment[1]', u'User comments', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': True, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': True, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:UserComment[1]/?xml:lang', u'x-default', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': True, 'IS_STABLE': False}),
+(u'exif:Flash', u'', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': True, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:Flash/exif:Fired', u'False', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:Flash/exif:Return', u'0', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:Flash/exif:Mode', u'2', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:Flash/exif:Function', u'False', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'exif:Flash/exif:RedEyeMode', u'False', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False})
+]
+
+u'http://ns.adobe.com/tiff/1.0/': [
+(u'tiff:Orientation', u'1', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'tiff:YCbCrPositioning', u'1', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'tiff:XResolution', u'4718592/65536', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'tiff:YResolution', u'4718592/65536', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'tiff:ResolutionUnit', u'2', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'tiff:Make', u'SAMSUNG', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'tiff:Model', u'GT-I9100', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False})
+]
+
+u'http://ns.adobe.com/xap/1.0/': [
+(u'xmp:ModifyDate', u'2014-02-21T12:53:44-08:00', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'xmp:CreatorTool', u'QuickTime 7.7', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False}),
+(u'xmp:CreateDate', u'2011-10-09T13:57:53', {'IS_SCHEMA': False, 'IS_ALIAS': False, 'HAS_TYPE': False, 'ARRAY_IS_ALT': False, 'IS_INTERNAL': False, 'IS_DERIVED': False, 'HAS_ALIASES': False, 'HAS_LANG': False, 'VALUE_IS_STRUCT': False, 'HAS_QUALIFIERS': False, 'ARRAY_IS_ALTTEXT': False, 'VALUE_IS_URI': False, 'VALUE_IS_ARRAY': False, 'ARRAY_IS_ORDERED': False, 'IS_QUALIFIER': False, 'IS_STABLE': False})
+]
+
+}
