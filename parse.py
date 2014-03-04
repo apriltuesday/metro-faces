@@ -29,8 +29,11 @@ for line in open(directory + '/contacts.xml'):
     except ValueError:
         continue
 
+invalid = 0
 # Parse images
 for filename in os.listdir(directory):
+    if filename == 'contacts.xml':
+        continue
     try:
         # Get image, downsample if too large
         f = directory + '/' + filename
@@ -51,6 +54,7 @@ for filename in os.listdir(directory):
                 try:
                     times.append(time.mktime(time.strptime(value[:16], '%Y-%m-%dT%H:%M'))) #'2011-10-09T13:57:53'
                 except ValueError:
+                    invalid += 1
                     times.append(0.0)
                 break
 #             if prop == 'exif:PixelXDimension':
@@ -101,6 +105,7 @@ for filename in os.listdir(directory):
     except IOError:
         continue
 
+print invalid
 # Save as .mat file
 io.savemat('../data/April_full_dataset.mat', {'images': images,
                                               'timestamps': times,

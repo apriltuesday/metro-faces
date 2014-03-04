@@ -27,7 +27,7 @@ f = open(websitePath + filename + '.graphml', 'w+')
 f.write(header + '\n\n')
 
 # Write line information
-for i in range(len(map)): # TODO what to do about colors?
+for i in range(len(map)):
     f.write('<key id="l' + str(i) + '" for="edge" attr.name="line ' + str(i))
     f.write('" attr.type="boolean" color.r="0" color.g="255" color.b="0" importance="10" title=""><default>FALSE</default></key>\n')
 
@@ -59,8 +59,17 @@ for i, pic, date in zip(imgs, images, times):
 f.write('\n\n')
 
 # Write edge information
+# l0 is always connection info, in consecutive pairs
 count = 0
-for i in range(len(map)):
+for j in range(0, len(map[0])-1, 2):
+    f.write('<edge id="e' + str(count) + '" ')
+    f.write('source="n' + str(map[0][j]) + '" target="n' + str(map[0][j+1]) + '">')
+    f.write('<data key="l0">true</data></edge>\n')
+    count += 1
+f.write('\n')    
+
+# the other lines
+for i in range(1, len(map)):
     line = map[i]
     for j in range(len(line)-1):
         f.write('<edge id="e' + str(count) + '" ')
