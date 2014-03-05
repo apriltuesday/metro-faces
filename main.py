@@ -8,7 +8,7 @@ import numpy as np
 import scipy.io as io
 import matplotlib.pyplot as plt
 import matplotlib.cbook as cbook
-from random import sample, choice, shuffle
+from random import sample, choice, shuffle, random
 import Queue
 from baselines import yearsBaseline, kmedoids
 
@@ -68,9 +68,9 @@ def coherence(chain, faces, times):
         pic2 = chain[i+1]
         #faces shared by both
         numShare = faces[pic1].dot(faces[pic2])
-        #if time moves backwards, subtract something
-        if np.nonzero(times[pic1])[0] > np.nonzero(times[pic2])[0]:
-            numShare -= 1
+        #if time moves backwards, subtract something XXX hack alert
+#        if (times[pic1] != 0).any() and (times[pic2] != 0).any:
+#            numShare -= np.nonzero(times[pic1])[0] - np.nonzero(times[pic2])[0]
             
         if numShare < minShare:
             minShare = numShare
@@ -82,6 +82,8 @@ def connectivity(map, faces):
     Compute connectivity of the map. Two lines are considered
     connected if their nodes share faces (and maybe times?)
     """
+    if len(map) < 2:
+        return 0
     # Try counting number of lines that intersect
     numLines = len(map)
     flatMap = []
@@ -244,14 +246,16 @@ def RG(s, t, B, map, nodes, edges, bPaths, faces, times, i=5):
     
     # Guess middle node and cost to reach it, and recurse
     for v in np.arange(len(nodes)):
-        for b in range(1, B+1):
-            # If either of these are infeasible, get out now
+        # XXX binary search?
+        for b in np.arange(1, B+1):
+            # If either of these are infeasible, try another b
             p1, c1 = RG(s, v, b, map, nodes, edges, bPaths, faces, times, i-1)
             if len(p1) == 0:
                 continue
             p2, c2 = RG(v, t, B-b, map + [p1], nodes, edges, bPaths, faces, times, i-1)
             if len(p2) == 0:
                 continue
+
             newM = incCover(p1 + p2, map, faces, times)
             if newM > m:
                 P = p1 + p2[1:] #start at 1 to omit the shared node
@@ -291,38 +295,50 @@ def getCoherentPaths(nodes, edges, faces, times, l=3, k=2, i=5):
         beginsWith[im] = begs
         endsWith[im] = ends
 
-    conn = connectivity(map, faces) #connectivity of the current map
-        
     # Find best paths between pairs of images
     for iter in np.arange(k):
         candidates = []
+
+        # XXX not every pair, just top coverage pairs???
+        # Get 10 images with top incremental coverage to use as starting points
+#        pq = Queue.PriorityQueue()
+#        for im in imgs:
+#            pq.put((-incCover([im], map, faces, times), im))
+#        bestStarts = []
+#        for i in np.arange(10):
+#            bestStarts.append(pq.get()[1])
+#        bestEnds = sample(imgs, 500) #or sample from nodes
+        
         # For each pair of images, get the nodes that start/end with them
         for im1 in imgs: #how to speed up these loops? XXX
-            starts = beginsWith[im1]
+            starts = sample(beginsWith[im1], int(len(beginsWith[im1]) / 2.0))
             for im2 in imgs:
-                ends = endsWith[im2]
+                ends = sample(endsWith[im2], int(len(endsWith[im2]) / 2.0))
                 maxPath = []
                 maxCov = 0.0
-                maxConn = conn
+                maxConn = connectivity(map, faces)
 
-            # Then find best-coverage path between each of these nodes
+                # Then find best-coverage path between each of these nodes
                 for s in starts:
                     for t in ends:
                         p, c = RG(s, t, B, map, nodes, edges, bPaths, faces, times, i)
-                        # If close to max coverage, only choose if greater connectivity
-                        if c > maxCov + 0.0001:
-                            maxPath = p
-                            maxCov = c
-                            maxConn = connectivity(map + [p], faces)
-                        elif abs(c - maxCov) < 0.0001:
-                            newConn = connectivity(map + [p], faces)
-                            if newConn > maxConn:
+                        # If map is empty, don't worry about connectivity
+                        if len(map) == 0:
+                            if c > maxCov:
                                 maxPath = p
                                 maxCov = c
-                                maxConn = newConn
-
-#                         if len(p) > len(maxPath): #found a better candidate path
-#                             maxPath = p
+                        else:                        
+                            # If close to max coverage, only choose if greater connectivity
+                            if c > maxCov + 0.0001:
+                                maxPath = p
+                                maxCov = c
+                                maxConn = connectivity(map + [p], faces)
+                            elif abs(c - maxCov) < 0.0001:
+                                newConn = connectivity(map + [p], faces)
+                                if newConn > maxConn:
+                                    maxPath = p
+                                    maxCov = c
+                                    maxConn = newConn
 
                 # Save the best of these paths between the two images
                 if len(maxPath) > 0:
@@ -424,6 +440,25 @@ def increaseConnectivity(map, nodes, edges, faces, times, maxIter=1):
         map = newMap
 
 
+def getConnections(map, faces):
+    """
+    Return a list of pairwise connections, where two photos are
+    connected if they are in different lines and share at least one
+    face.
+    """
+    connections = []
+    numLines = len(map)
+
+    # TODO filter out me
+    for u in np.arange(numLines):
+        for v in np.arange(u+1, numLines):
+            for i in map[u]:
+                for j in map[v]:
+                    if faces[i].dot(faces[j]) > 0:
+                        connections.append([i,j])
+    return connections
+
+
 if __name__ == '__main__':
     args = sys.argv
     if len(args) < 2:
@@ -433,18 +468,18 @@ if __name__ == '__main__':
         # I imagine this being some function of the UI, so zooming can change this
 
     # Load data
-    mat = io.loadmat('../data/April_full_dataset_binary.mat')
-    # note when we change btw binary and not, need to change tau XXX
+    mat = io.loadmat('../data/April_full_fixedTime_binary.mat') #'../data/April_full_dataset_binary.mat')
+    t = 3 # note when we change btw binary and not, need to change tau XXX
     images = mat['images'][:,0]
     years = mat['timestamps']
     faces = mat['faces']
     print 'done loading'
 
     # FOR TESTING XXX
-    choices = sample(np.arange(images.shape[0]), 300)
-    images = images[choices]
-    years = years[choices]
-    faces = faces[choices]
+#    choices = sample(np.arange(images.shape[0]), 300)
+#    images = images[choices]
+#    years = years[choices]
+#    faces = faces[choices]
 
     n = images.shape[0]
     items = np.arange(n)
@@ -462,20 +497,21 @@ if __name__ == '__main__':
             times[i, whichBin] = 1
 
     # Find high-coverage coherent paths
-    nodes, edges = buildCoherenceGraph(faces, times, m=3, tau=3, maxIter=100) #pretty fast
+    nodes, edges = buildCoherenceGraph(faces, times, m=3, tau=t, maxIter=100) #pretty fast
+    print 'number of nodes', len(nodes)
     print 'done building graph'
     paths = getCoherentPaths(nodes, edges, faces, times, l=5, k=2, i=2) #sure as hell not fast
     print 'done getting paths'
 
-    # Improve connectivity
-    # XXX This is hella slow, can we roll it into the coherent path alg?
-#    increaseConnectivity(paths, nodes, edges, faces, times)
-#    print 'done increasing connections'
+    # Get connections between lines
+    connections = getConnections(paths, faces)
 
     # Save map to csv
     # Each image is separated by a comma, each path by a linebreak
     output = open('largeTest.csv', 'w+')
-    # TODO line 0 must be connections
+    
+    # First include connections
+    output.write(','.join(map(str, list(cbook.flatten(connections)))) + '\n')
     for p in paths:
         output.write(','.join(map(str, p)) + '\n')
     output.close()

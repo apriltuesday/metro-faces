@@ -54,8 +54,9 @@ for filename in os.listdir(directory):
                 try:
                     times.append(time.mktime(time.strptime(value[:16], '%Y-%m-%dT%H:%M'))) #'2011-10-09T13:57:53'
                 except ValueError:
-                    invalid += 1
-                    times.append(0.0)
+                    # if original time missing, use modify time
+                    t = xmp['http://ns.adobe.com/xap/1.0/'][0][1]
+                    times.append(time.mktime(time.strptime(t[:16], '%Y-%m-%dT%H:%M')))
                 break
 #             if prop == 'exif:PixelXDimension':
 #                 w = int(value)
@@ -105,9 +106,8 @@ for filename in os.listdir(directory):
     except IOError:
         continue
 
-print invalid
 # Save as .mat file
-io.savemat('../data/April_full_dataset.mat', {'images': images,
+io.savemat('../data/April_full_fixedTime.mat', {'images': images,
                                               'timestamps': times,
 #                                                  'dimensions': dims,
                                               'faces': faces}
