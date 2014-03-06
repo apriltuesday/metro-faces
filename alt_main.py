@@ -1,5 +1,5 @@
 # April Shen
-# Metro maps X Photobios - Main file
+# Metro maps X Photobios - ALT Main file
 #!/usr/bin/python
 
 from __future__ import division
@@ -316,29 +316,14 @@ def getCoherentPaths(nodes, edges, faces, times, l=3, k=2, i=5):
                 ends = sample(endsWith[im2], int(len(endsWith[im2]) / 2.0))
                 maxPath = []
                 maxCov = 0.0
-#                maxConn = connectivity(map, faces)
 
                 # Then find best-coverage path between each of these nodes
                 for s in starts:
                     for t in ends:
                         p, c = RG(s, t, B, map, nodes, edges, bPaths, faces, times, i)
-                        # If map is empty, don't worry about connectivity
-#                        if len(map) == 0:
                         if c > maxCov:
                             maxPath = p
                             maxCov = c
-#                         else:                        
-#                             # If close to max coverage, only choose if greater connectivity
-#                             if c > maxCov + 0.0001:
-#                                 maxPath = p
-#                                 maxCov = c
-#                                 maxConn = connectivity(map + [p], faces)
-#                             elif abs(c - maxCov) < 0.0001:
-#                                 newConn = connectivity(map + [p], faces)
-#                                 if newConn > maxConn:
-#                                     maxPath = p
-#                                     maxCov = c
-#                                     maxConn = newConn
 
                 # Save the best of these paths between the two images
                 if len(maxPath) > 0:
@@ -497,10 +482,10 @@ if __name__ == '__main__':
             times[i, whichBin] = 1
 
     # Find high-coverage coherent paths
-    nodes, edges = buildCoherenceGraph(faces, times, m=3, tau=t, maxIter=100) #pretty fast
+    nodes, edges = buildCoherenceGraph(faces, times, m=3, tau=t, maxIter=200) #pretty fast
     print 'number of nodes', len(nodes)
     print 'done building graph'
-    paths = getCoherentPaths(nodes, edges, faces, times, l=5, k=4, i=2) #sure as hell not fast
+    paths = getCoherentPaths(nodes, edges, faces, times, l=5, k=4, i=3) #sure as hell not fast
     print 'done getting paths'
 
     # Get connections between lines
@@ -508,7 +493,7 @@ if __name__ == '__main__':
 
     # Save map to csv
     # Each image is separated by a comma, each path by a linebreak
-    output = open('tinyTest.csv', 'w+')
+    output = open('noconnTest.csv', 'w+')
     
     # First include connections
     output.write(','.join(map(str, list(cbook.flatten(connections)))) + '\n')
