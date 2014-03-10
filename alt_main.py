@@ -1,5 +1,5 @@
 # April Shen
-# Metro maps X Photobios - ALT Main file
+# Metro maps X Photobios - Main file
 #!/usr/bin/python
 
 from __future__ import division
@@ -137,27 +137,18 @@ def CELF(map, candidates, faces, times):
     candidates to add to map. Faster than greedy through lazy
     evaluation of incremental coverage
     """
-    if len(candidates) == 0:
+    if candidates.empty():
         return
-    # priority queue sorted by incremental coverage
-    pq = Queue.PriorityQueue()
-    for p in candidates:
-        pq.put((-float('inf'), p)) #negative because want max first
-    # array indicating whether we've computed coverage for a path before
-    computed = [False for p in candidates]
-
     while True:
         # Compute incremental coverage for top value in pq
-        d, p = pq.get()
-        i = candidates.index(p)
-        cov = incCover(p, map, faces, times)
+        d, p = candidates.get()
+        cov = incCover(p[0], map, faces, times)
         # If previously computed, we've found the best path
-        if computed[i]:
-            map.append(p)
+        if p[1]:
+            map.append(p[0])
             break
         else:
-            pq.put((-cov, p))
-            computed[i] = True
+            candidates.put((-cov, (p[0], True)))
 
 
 def buildCoherenceGraph(faces, times, m=3, tau=2, maxIter=10):
@@ -202,7 +193,8 @@ def buildCoherenceGraph(faces, times, m=3, tau=2, maxIter=10):
 
     # Add edges to the graph
     n = len(nodes)
-    edges = np.zeros((n, n))
+#    edges = np.zeros((n, n))
+    edges = np.eye(n) #XXX connect nodes to selves...
     for i in np.arange(n):
         for j in np.arange(i+1, n):
             u = nodes[i]
@@ -273,92 +265,6 @@ def getCoherentPaths(nodes, edges, faces, times, l=3, k=2, i=5):
     """
     map = []
     imgs = np.arange(faces.shape[0])
-    B = l - len(nodes[0])# + 1
-    # Count paths <= B length in graph
-    bPaths = np.empty(edges.shape)
-    np.copyto(bPaths, edges)
-    for i in np.arange(1, B):
-        bPaths += bPaths.dot(edges)
-
-    # Build dict of img -> list of nodes beginning with img,
-    # and another for list of nodes ending with img
-    beginsWith = {}
-    endsWith = {}
-    for im in imgs:
-        begs = []
-        ends = []
-        for node in nodes:
-            if node[0] == im:
-                begs.append(nodes.index(node))
-            if node[-1] == im:
-                ends.append(nodes.index(node))
-        beginsWith[im] = begs
-        endsWith[im] = ends
-
-    # Find best paths between pairs of images
-    for iter in np.arange(k):
-        candidates = []
-
-        # XXX not every pair, just top coverage pairs???
-        # Get 10 images with top incremental coverage to use as starting points
-#        pq = Queue.PriorityQueue()
-#        for im in imgs:
-#            pq.put((-incCover([im], map, faces, times), im))
-#        bestStarts = []
-#        for i in np.arange(10):
-#            bestStarts.append(pq.get()[1])
-#        bestEnds = sample(imgs, 500) #or sample from nodes
-        
-        # For each pair of images, get the nodes that start/end with them
-        for im1 in imgs: #how to speed up these loops? XXX
-            starts = sample(beginsWith[im1], int(len(beginsWith[im1]) / 2.0))
-            for im2 in imgs:
-                ends = sample(endsWith[im2], int(len(endsWith[im2]) / 2.0))
-                maxPath = []
-                maxCov = 0.0
-
-                # Then find best-coverage path between each of these nodes
-                for s in starts:
-                    for t in ends:
-                        p, c = RG(s, t, B, map, nodes, edges, bPaths, faces, times, i)
-                        if c > maxCov:
-                            maxPath = p
-                            maxCov = c
-
-                # Save the best of these paths between the two images
-                if len(maxPath) > 0:
-                    print maxPath
-                    candidates.append(maxPath)
-        
-        # Greedily choose best candidate and add to map -- using CELF!
-        CELF(map, candidates, faces, times)
-        print 'done with iteration', iter
-
-    # Flatten paths and return map
-    # (I wrote this all out to make it super explicit and less confusing)
-    M = []
-    for p in map:
-        newP = []
-        for node in p:
-            for img in node:
-                if img not in newP:
-                    newP.append(img)
-        M.append(newP)
-    return M
-
-
-def increaseConnectivity(map, nodes, edges, faces, times, maxIter=1):
-    """
-    Increase connectivity of the existing map as follows. We attempt
-    to replace each line with an alternative that does not decrease
-    map coverage and increases connectivity, reusing the orienteering
-    algorithm to find alternatives.
-    """
-    # XXX Isn't this whole deal gonna be reeeeaaalllly slowwww???
-    k = len(map)
-    l = len(map[0])
-    #copied from getCoherentPaths...
-    imgs = np.arange(faces.shape[0])
     B = l - len(nodes[0])
     # Count paths <= B length in graph
     bPaths = np.empty(edges.shape)
@@ -381,48 +287,60 @@ def increaseConnectivity(map, nodes, edges, faces, times, maxIter=1):
         beginsWith[im] = begs
         endsWith[im] = ends
 
-    for iter in np.arange(maxIter):
-        cov = coverage(map, faces, times)
-        for i in np.arange(k):
-            # Consider current map without one path
-            newMap = map[:i] + map[i+1:]
+    # Candidates is a priority queue ordered in decreasing coverage
+    candidates = Queue.PriorityQueue()
 
-            #copied from getCoherentPaths...
-            candidates = []
-            # For each pair of images, get the nodes that start/end with them
-            for im1 in imgs: #how to speed up these loops? XXX
-                starts = beginsWith[im1]
-                for im2 in imgs:
-                    ends = endsWith[im2]
-                    maxPath = []
+    # Use orienteering to get list of candidate paths first
+    for im1 in imgs:
+        starts = sample(beginsWith[im1], int(len(beginsWith[im1]) / 2.0))
+        for im2 in imgs:
+            ends = sample(endsWith[im2], int(len(endsWith[im2]) / 2.0))
+            maxPath = []
+            maxCov = 0.0
 
-                # Then find best-coverage path between each of these nodes
-                    for s in starts:
-                        for t in ends:
-                            p = RG(s, t, B, newMap, nodes, edges, bPaths, faces, times, i=3)
-                            if len(p) > len(maxPath): #found a better candidate path
-                                maxPath = p
+            # Find best-coverage path between each pair of images
+            for s in starts:
+                for t in ends:
+                    p, c = RG(s, t, B, map, nodes, edges, bPaths, faces, times, i)
+                    if c > maxCov:
+                        maxPath = p
+                        maxCov = c
+                        
+            # we keep 1 candidate per pair of images
+            if len(maxPath) > 0:
+                print maxPath
+                candidates.put((-maxCov, (maxPath, False))) #false is for use by celf
 
-                    # Save the best of these paths between the two images
-                    if len(maxPath) > 0:
-                        print maxPath
-                        candidates.append(maxPath)
-            # Pick candidate with best connectivity among those with same coverage
-            bestConn = connectivity(newMap, faces)
-            bestCand = []
-            for c in candidates:
-                newCov = coverage(newMap + [c], faces, times)
-                if abs(newCov - cov) < 0.00001:
-                    newConn = connectivity(newMap + [c], faces)
-                    if newConn > bestConn:
-                        bestConn = newConn
-                        bestCand = c
+    # The top candidate is our top coverage path
+    map.append(candidates.get()[1][0])
 
-            newMap.append(bestCand)
-        # If we've converged to something, stop
-        if newMap == map:
+    # Find best-coverage paths using CELF
+    # XXX ignore connectivity for now
+    for iter in np.arange(k-1):
+        CELF(map, candidates, faces, times)
+        print 'done with iteration', iter
+        if iter == k-2:
             break
-        map = newMap
+
+        # reset whether computed or not
+        other = Queue.PriorityQueue()
+        while not candidates.empty():
+            d, p = candidates.get()
+            other.put((d, (p[0], False)))
+        candidates = other
+
+    # Flatten paths and return map
+    # (I wrote this all out to make it super explicit and less confusing)
+        ## XXX can probably flatten earlier now
+    M = []
+    for p in map:
+        newP = []
+        for node in p:
+            for img in node:
+                if img not in newP:
+                    newP.append(img)
+        M.append(newP)
+    return M
 
 
 def getConnections(map, faces):
@@ -461,10 +379,10 @@ if __name__ == '__main__':
     print 'done loading'
 
     # FOR TESTING XXX
-#    choices = sample(np.arange(images.shape[0]), 300)
-#    images = images[choices]
-#    years = years[choices]
-#    faces = faces[choices]
+    choices = sample(np.arange(images.shape[0]), 500)
+    images = images[choices]
+    years = years[choices]
+    faces = faces[choices]
 
     n = images.shape[0]
     items = np.arange(n)
@@ -482,10 +400,10 @@ if __name__ == '__main__':
             times[i, whichBin] = 1
 
     # Find high-coverage coherent paths
-    nodes, edges = buildCoherenceGraph(faces, times, m=3, tau=t, maxIter=200) #pretty fast
+    nodes, edges = buildCoherenceGraph(faces, times, m=3, tau=t, maxIter=100) #pretty fast
     print 'number of nodes', len(nodes)
     print 'done building graph'
-    paths = getCoherentPaths(nodes, edges, faces, times, l=5, k=4, i=3) #sure as hell not fast
+    paths = getCoherentPaths(nodes, edges, faces, times, l=5, k=4, i=2) #sure as hell not fast
     print 'done getting paths'
 
     # Get connections between lines
@@ -493,7 +411,7 @@ if __name__ == '__main__':
 
     # Save map to csv
     # Each image is separated by a comma, each path by a linebreak
-    output = open('noconnTest.csv', 'w+')
+    output = open('fasterBetter.csv', 'w+')
     
     # First include connections
     output.write(','.join(map(str, list(cbook.flatten(connections)))) + '\n')
