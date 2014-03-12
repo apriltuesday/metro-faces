@@ -30,7 +30,7 @@ def coverage(map, faces, times):
     faceWeights = np.apply_along_axis(np.count_nonzero, 1, faces)
     # Weight importance of times by frequency (for now... maybe recency?) XXX
     timeWeights = np.apply_along_axis(np.count_nonzero, 0, times)
-    timeWeights = timeWeights / np.linalg.norm(timeWeights) #normalize... necessary?
+#    timeWeights = timeWeights / np.linalg.norm(timeWeights) #normalize... necessary?
 
     for v, w in zip(ppl, faceWeights):
         c = 1.0
@@ -69,8 +69,9 @@ def coherence(chain, faces, times):
         #faces shared by both
         numShare = faces[pic1].dot(faces[pic2])
         #if time moves backwards, subtract something XXX hack alert
-#        if (times[pic1] != 0).any() and (times[pic2] != 0).any:
-#            numShare -= np.nonzero(times[pic1])[0] - np.nonzero(times[pic2])[0]
+        if (times[pic1] != 0).any() and (times[pic2] != 0).any:
+            if np.nonzero(times[pic1])[0][0] > np.nonzero(times[pic2])[0][0]:
+                numShare /= 2.0
             
         if numShare < minShare:
             minShare = numShare
@@ -237,8 +238,9 @@ def RG(s, t, B, map, nodes, edges, bPaths, faces, times, i=5):
     m = 0.0
     
     # Guess middle node and cost to reach it, and recurse
-    for v in np.arange(len(nodes)):
-        # XXX binary search?
+    # Note that the only candidate middle nodes are those within B from both s and t
+    guesses = set(np.nonzero(bPaths[s])[0]) & set(np.nonzero(bPaths[:,t])[0]) #set intersect
+    for v in guesses: #np.arange(len(nodes)):
         for b in np.arange(1, B+1):
             # If either of these are infeasible, try another b
             p1, c1 = RG(s, v, b, map, nodes, edges, bPaths, faces, times, i-1)
@@ -388,7 +390,7 @@ if __name__ == '__main__':
     items = np.arange(n)
 
     # Bin the times and make binary vector for each image
-    # XXX do some hacks to deal with missing times - if missing, assume it covers nothing
+    # if time missing, assume it covers nothing
     nonzeroYears = items[np.nonzero(years)[0]]
     sortedYears = sorted(nonzeroYears, key=lambda i: years[i])
     num = int(len(sortedYears) / k) + 1
@@ -403,7 +405,7 @@ if __name__ == '__main__':
     nodes, edges = buildCoherenceGraph(faces, times, m=3, tau=t, maxIter=100) #pretty fast
     print 'number of nodes', len(nodes)
     print 'done building graph'
-    paths = getCoherentPaths(nodes, edges, faces, times, l=5, k=4, i=2) #sure as hell not fast
+    paths = getCoherentPaths(nodes, edges, faces, times, l=7, k=4, i=3) #sure as hell not fast
     print 'done getting paths'
 
     # Get connections between lines
@@ -411,7 +413,7 @@ if __name__ == '__main__':
 
     # Save map to csv
     # Each image is separated by a comma, each path by a linebreak
-    output = open('fasterBetter.csv', 'w+')
+    output = open('fasterBiggerToo.csv', 'w+')
     
     # First include connections
     output.write(','.join(map(str, list(cbook.flatten(connections)))) + '\n')
@@ -428,3 +430,5 @@ if __name__ == '__main__':
             plt.title('image ' + str(img))
             plt.imshow(images[img])
     plt.show()
+
+    # XXX TODO: update for the new dataset, w/ locations

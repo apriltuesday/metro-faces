@@ -16,8 +16,10 @@ directory = sys.argv[1]
 
 images = [] #list of images
 times = [] #list of timestamps
-#dims = [] #list of image dimensions (w,h)
-faces = [] #list of face regions (name,x,y,w,h)
+longs = [] # list of longitude
+lats = [] #list of latitude
+faces = [] #list of face vectors (weights by region size)
+facesBinary = [] #ditto but binary
 
 # Get a master list of names from contacts.xml
 names = []
@@ -47,27 +49,49 @@ for filename in os.listdir(directory):
         regions = xmp['http://www.metadataworkinggroup.com/schemas/regions/']
         exif = xmp['http://ns.adobe.com/exif/1.0/']
 
-        # Get timestamp and photo dimensions
-#        w = h = 0 # TODO dimensions maybe later
+        # Get timestamp and location
+#             dimensions: 'exif:PixelXDimension', 'exif:PixelYDimension':
+        gpsFound = False
         for prop, value, opts in exif:
             if prop == 'exif:DateTimeOriginal':
                 try:
                     times.append(time.mktime(time.strptime(value[:16], '%Y-%m-%dT%H:%M'))) #'2011-10-09T13:57:53'
                 except ValueError:
-                    # if original time missing, use modify time
-                    t = xmp['http://ns.adobe.com/xap/1.0/'][0][1]
-                    times.append(time.mktime(time.strptime(t[:16], '%Y-%m-%dT%H:%M')))
-                break
-#             if prop == 'exif:PixelXDimension':
-#                 w = int(value)
-#             if prop == 'exif:PixelYDimension':
-#                 h = int(value)
-#         dims.append((w, h))
+                    try:
+                        # if original time missing, use modify time
+                        t = xmp['http://ns.adobe.com/xap/1.0/'][0][1]
+                        times.append(time.mktime(time.strptime(t[:16], '%Y-%m-%dT%H:%M')))
+                    except ValueError:
+                        # still missing, just set to inf
+                        times.append(float('inf'))
 
-        # Create "bag of faces" feature vector, weighted by what
-        # fraction of the image the face occupies
+            if prop == 'exif:GPSLongitude':
+                gpsFound = True
+                # Round to nearest degree, set south and west to negative
+                degree = float(value[:value.index('.')].replace(',','.'))
+                if value[-1] == 'W':
+                    degree = -degree
+                longs.append(degree)
+            if prop == 'exif:GPSLatitude':
+                gpsFound = True
+                # Round to nearest degree, set south and west to negative
+                degree = float(value[:value.index('.')].replace(',','.'))
+                if value[-1] == 'S':
+                    degree = -degree
+                lats.append(degree)
+
+        # If no GPS, set long/lat to inf
+        if not gpsFound:
+            longs.append(float('inf'))
+            lats.append(float('inf'))
+                
+
+        # Create "bag of faces" feature vector
+        # Two versions: one weighted by region size, the other binary
         i = 1 #current region index
+        w = h = 0 #dimension of region
         faceVect = np.zeros(len(names))
+        faceVectBin = np.zeros(len(names))
         for prop, value, opts in regions:
             if prop == 'mwg-rs:Regions/mwg-rs:RegionList[' + str(i) + ']/mwg-rs:Name':
                 f = names.index(value)
@@ -77,38 +101,25 @@ for filename in os.listdir(directory):
                 h = float(value)
             if prop == 'mwg-rs:Regions/mwg-rs:RegionList[' + str(i) + ']/mwg-rs:Area/stArea:unit':
                 i += 1
-                faceVect[f] = w * h                
+                faceVect[f] = w * h
+                faceVectBin[f] = 1
         faces.append(faceVect)
+        facesBinary.append(faceVectBin)
 
-        # TODO what to do with this? Get face region information
-#         i = 1 #current region index
-#         name = None
-#         x = y = 0.0 #these are fractions of the photo dimensions
-#         w = h = 0.0
-#         for prop, value, opts in regions:
-#             if prop == 'mwg-rs:Regions/mwg-rs:RegionList[' + str(i) + ']/mwg-rs:Name':
-#                 name = value
+        # TODO region location
 #             if prop == 'mwg-rs:Regions/mwg-rs:RegionList[' + str(i) + ']/mwg-rs:Area/stArea:x':
 #                 x = float(value)
 #             if prop == 'mwg-rs:Regions/mwg-rs:RegionList[' + str(i) + ']/mwg-rs:Area/stArea:y':
 #                 y = float(value)
-#             if prop == 'mwg-rs:Regions/mwg-rs:RegionList[' + str(i) + ']/mwg-rs:Area/stArea:w':
-#                 w = float(value)
-#             if prop == 'mwg-rs:Regions/mwg-rs:RegionList[' + str(i) + ']/mwg-rs:Area/stArea:h':
-#                 h = float(value)
-#             if prop == 'mwg-rs:Regions/mwg-rs:RegionList[' + str(i) + ']/mwg-rs:Area/stArea:unit':
-#                 faces.append((name, x, y, w, h))
-#                 i += 1
-#                 name = None
-#                 x = y = 0.0
-#                 w = h = 0.0
 
     except IOError:
         continue
 
 # Save as .mat file
-io.savemat('../data/April_full_fixedTime.mat', {'images': images,
-                                              'timestamps': times,
-#                                                  'dimensions': dims,
-                                              'faces': faces}
+io.savemat('../data/April_full_new.mat', {'images': images,
+                                          'timestamps': times,
+                                          'longitudes': longs,
+                                          'latitudes': lats,
+                                          'faces': faces,
+                                          'facesBinary': facesBinary}
            )
