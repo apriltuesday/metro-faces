@@ -13,7 +13,7 @@ import Queue
 from baselines import yearsBaseline, kmedoids
 
 
-def coverage(map, faces, times):
+def coverage(map, faces, times, places):
     """
     Computes coverage of the set of chains map.  See
     metromaps for details.
@@ -21,28 +21,35 @@ def coverage(map, faces, times):
     subset = set(cbook.flatten(map))
     total = 0.0
     numImages, numPeople = faces.shape
-    numTimes = times.shape[1]
+    numTimes = times.shape[0]
+    numPlaces = places.shape[0]
     imgs = np.arange(numImages)
     ppl = np.arange(numPeople)
     tim = np.arange(numTimes)
+    plac = np.arange(numPlaces)
 
-    # Weight importance of faces by frequency...
+    # Weight importance of faces, times, places by frequency...
     faceWeights = np.apply_along_axis(np.count_nonzero, 1, faces)
-    # Weight importance of times by frequency (for now... maybe recency?) XXX
     timeWeights = np.apply_along_axis(np.count_nonzero, 0, times)
-    timeWeights = timeWeights / np.linalg.norm(timeWeights) #normalize... necessary?
+    placeWeights = np.apply_along_axis(np.count_nonzero, 0, places)
 
+    # Compute coverages
     for v, w in zip(ppl, faceWeights):
         c = 1.0
         for u in subset:
             c *= (1 - faces[u,v]) #includes size of region
         c = 1 - c
         total += w * c
-    
     for v, w in zip(tim, timeWeights):
         c = 1.0
         for u in subset:
             c *= (1 - times[u,v])
+        c = 1 - c
+        total += w * c
+    for v, w in zip(plac, placeWeights):
+        c = 1.0
+        for u in subset:
+            c *= (1 - places[u,v])
         c = 1 - c
         total += w * c
 
@@ -69,8 +76,9 @@ def coherence(chain, faces, times):
         #faces shared by both
         numShare = faces[pic1].dot(faces[pic2])
         #if time moves backwards, subtract something XXX hack alert
-#        if (times[pic1] != 0).any() and (times[pic2] != 0).any:
-#            numShare -= np.nonzero(times[pic1])[0] - np.nonzero(times[pic2])[0]
+        if (times[pic1] != 0).any() and (times[pic2] != 0).any:
+            if np.nonzero(times[pic1])[0][0] > np.nonzero(times[pic2])[0][0]:
+                numShare /= 2.0
             
         if numShare < minShare:
             minShare = numShare
@@ -93,7 +101,6 @@ def connectivity(map, faces):
     for u in np.arange(numLines):
         for v in np.arange(u+1, numLines):
             intersect = False
-            # XXX times?
             for i in flatMap[u]:
                 for j in flatMap[v]:
                     if faces[i].dot(faces[j]) > 0:
@@ -107,12 +114,12 @@ def connectivity(map, faces):
     return total
 
 
-def incCover(p, M, faces, times):
+def incCover(p, M, faces, times, places):
     """
     Incremental coverage of new path p over current map M.
     """
     other = M + [p]
-    return coverage(other, faces, times) - coverage(M, faces, times)
+    return coverage(other, faces, times, places) - coverage(M, faces, times, places)
 
 
 def greedy(map, candidates, faces, times):
@@ -131,33 +138,24 @@ def greedy(map, candidates, faces, times):
     map.append(maxPath)
 
 
-def CELF(map, candidates, faces, times):
+def CELF(map, candidates, faces, times, places):
     """
     Use Leskovec et al.'s CELF to choose best coverage path from
     candidates to add to map. Faster than greedy through lazy
     evaluation of incremental coverage
     """
-    if len(candidates) == 0:
+    if candidates.empty():
         return
-    # priority queue sorted by incremental coverage
-    pq = Queue.PriorityQueue()
-    for p in candidates:
-        pq.put((-float('inf'), p)) #negative because want max first
-    # array indicating whether we've computed coverage for a path before
-    computed = [False for p in candidates]
-
     while True:
         # Compute incremental coverage for top value in pq
-        d, p = pq.get()
-        i = candidates.index(p)
-        cov = incCover(p, map, faces, times)
+        d, p = candidates.get()
+        cov = incCover(p[0], map, faces, times, places)
         # If previously computed, we've found the best path
-        if computed[i]:
-            map.append(p)
+        if p[1]:
+            map.append(p[0])
             break
         else:
-            pq.put((-cov, p))
-            computed[i] = True
+            candidates.put((-cov, (p[0], True)))
 
 
 def buildCoherenceGraph(faces, times, m=3, tau=2, maxIter=10):
@@ -202,7 +200,8 @@ def buildCoherenceGraph(faces, times, m=3, tau=2, maxIter=10):
 
     # Add edges to the graph
     n = len(nodes)
-    edges = np.zeros((n, n))
+#    edges = np.zeros((n, n))
+    edges = np.eye(n) #XXX connect nodes to selves...
     for i in np.arange(n):
         for j in np.arange(i+1, n):
             u = nodes[i]
@@ -222,7 +221,7 @@ def buildCoherenceGraph(faces, times, m=3, tau=2, maxIter=10):
     return nodes, edges
 
 
-def RG(s, t, B, map, nodes, edges, bPaths, faces, times, i=5):
+def RG(s, t, B, map, nodes, edges, bPaths, faces, times, places, i=5):
     """
     Recursive greedy algorithm to solve submodular orienteering
     problem.  Finds s-t walk of length at most B, with maximum
@@ -238,32 +237,33 @@ def RG(s, t, B, map, nodes, edges, bPaths, faces, times, i=5):
         # If found a neighboring pair, this is the best path
         if edges[s, t] > 0:
             p = [nodes[s], nodes[t]]
-            return p, incCover(p, map, faces, times)
+            return p, incCover(p, map, faces, times, places)
         # Otherwise infeasible
         return [], 0.0
     P = []
     m = 0.0
     
     # Guess middle node and cost to reach it, and recurse
-    for v in np.arange(len(nodes)):
-        # XXX binary search?
+    # Note that the only candidate middle nodes are those within B from both s and t
+    guesses = set(np.nonzero(bPaths[s])[0]) & set(np.nonzero(bPaths[:,t])[0]) #set intersect
+    for v in guesses: #np.arange(len(nodes)):
         for b in np.arange(1, B+1):
             # If either of these are infeasible, try another b
-            p1, c1 = RG(s, v, b, map, nodes, edges, bPaths, faces, times, i-1)
+            p1, c1 = RG(s, v, b, map, nodes, edges, bPaths, faces, times, places, i-1)
             if len(p1) == 0:
                 continue
-            p2, c2 = RG(v, t, B-b, map + [p1], nodes, edges, bPaths, faces, times, i-1)
+            p2, c2 = RG(v, t, B-b, map + [p1], nodes, edges, bPaths, faces, times, places, i-1)
             if len(p2) == 0:
                 continue
 
-            newM = incCover(p1 + p2, map, faces, times)
+            newM = incCover(p1 + p2, map, faces, times, places)
             if newM > m:
                 P = p1 + p2[1:] #start at 1 to omit the shared node
                 m = newM
     return P, m
 
 
-def getCoherentPaths(nodes, edges, faces, times, l=3, k=2, i=5):
+def getCoherentPaths(nodes, edges, faces, times, places, l=3, k=2, i=5):
     """
     Return set of k l-coherent paths in G = (nodes, edges) that
     maximize coverage.  We accomplish this through submodular
@@ -271,6 +271,7 @@ def getCoherentPaths(nodes, edges, faces, times, l=3, k=2, i=5):
     between every two nodes in G, then we greedily choose the best
     path to add to the map and repeat.
     """
+    # TODO: kill the duplicate nodes dude
     map = []
     imgs = np.arange(faces.shape[0])
     B = l - len(nodes[0])
@@ -295,62 +296,51 @@ def getCoherentPaths(nodes, edges, faces, times, l=3, k=2, i=5):
         beginsWith[im] = begs
         endsWith[im] = ends
 
-    # Find best paths between pairs of images
-    for iter in np.arange(k):
-        candidates = []
+    # Candidates is a priority queue ordered in decreasing coverage
+    candidates = Queue.PriorityQueue()
 
-        # XXX not every pair, just top coverage pairs???
-        # Get 10 images with top incremental coverage to use as starting points
-#        pq = Queue.PriorityQueue()
-#        for im in imgs:
-#            pq.put((-incCover([im], map, faces, times), im))
-#        bestStarts = []
-#        for i in np.arange(10):
-#            bestStarts.append(pq.get()[1])
-#        bestEnds = sample(imgs, 500) #or sample from nodes
-        
-        # For each pair of images, get the nodes that start/end with them
-        for im1 in imgs: #how to speed up these loops? XXX
-            starts = sample(beginsWith[im1], int(len(beginsWith[im1]) / 2.0))
-            for im2 in imgs:
-                ends = sample(endsWith[im2], int(len(endsWith[im2]) / 2.0))
-                maxPath = []
-                maxCov = 0.0
-                maxConn = connectivity(map, faces)
+    # Use orienteering to get list of candidate paths first
+    for im1 in imgs:
+        starts = sample(beginsWith[im1], int(len(beginsWith[im1]) / 2.0))
+        for im2 in imgs:
+            ends = sample(endsWith[im2], int(len(endsWith[im2]) / 2.0))
+            maxPath = []
+            maxCov = 0.0
 
-                # Then find best-coverage path between each of these nodes
-                for s in starts:
-                    for t in ends:
-                        p, c = RG(s, t, B, map, nodes, edges, bPaths, faces, times, i)
-                        # If map is empty, don't worry about connectivity
-                        if len(map) == 0:
-                            if c > maxCov:
-                                maxPath = p
-                                maxCov = c
-                        else:                        
-                            # If close to max coverage, only choose if greater connectivity
-                            if c > maxCov + 0.0001:
-                                maxPath = p
-                                maxCov = c
-                                maxConn = connectivity(map + [p], faces)
-                            elif abs(c - maxCov) < 0.0001:
-                                newConn = connectivity(map + [p], faces)
-                                if newConn > maxConn:
-                                    maxPath = p
-                                    maxCov = c
-                                    maxConn = newConn
+            # Find best-coverage path between each pair of images
+            for s in starts:
+                for t in ends:
+                    p, c = RG(s, t, B, map, nodes, edges, bPaths, faces, times, places, i)
+                    if c > maxCov:
+                        maxPath = p
+                        maxCov = c
+                        
+            # we keep 1 candidate per pair of images
+            if len(maxPath) > 0:
+                print maxPath
+                candidates.put((-maxCov, (maxPath, False))) #false is for use by celf
 
-                # Save the best of these paths between the two images
-                if len(maxPath) > 0:
-                    print maxPath
-                    candidates.append(maxPath)
-        
-        # Greedily choose best candidate and add to map -- using CELF!
-        CELF(map, candidates, faces, times)
+    # The top candidate is our top coverage path
+    map.append(candidates.get()[1][0])
+
+    # Find best-coverage paths using CELF
+    # XXX ignore connectivity for now
+    for iter in np.arange(k-1):
+        CELF(map, candidates, faces, times, places)
         print 'done with iteration', iter
+        if iter == k-2:
+            break
+
+        # reset whether computed or not
+        other = Queue.PriorityQueue()
+        while not candidates.empty():
+            d, p = candidates.get()
+            other.put((d, (p[0], False)))
+        candidates = other
 
     # Flatten paths and return map
     # (I wrote this all out to make it super explicit and less confusing)
+        ## XXX can probably flatten earlier now
     M = []
     for p in map:
         newP = []
@@ -360,9 +350,6 @@ def getCoherentPaths(nodes, edges, faces, times, l=3, k=2, i=5):
                     newP.append(img)
         M.append(newP)
     return M
-
-
-
 
 
 def getConnections(map, faces):
@@ -384,48 +371,72 @@ def getConnections(map, faces):
     return connections
 
 
+def bin(values, k):
+    """
+    Bin values into k bins and returns binary vector indicating bin
+    membership. Assumes we can sort.  May be infs but no nans.
+    """
+    n = values.shape[0]
+    items = np.arange(n)
+    valid = items[np.isfinite(values)]
+    sortedVals = sorted(valid, key=lambda i: values[i])
+    num = int(np.ceil(len(sortedVals) / k))
+    bins = [sortedVals[x:x+num] for x in range(0, len(sortedVals), num)]
+    vectors = np.zeros((n, len(bins)))
+    for i in items:
+        if np.isfinite(values[i]):
+            whichBin = map(lambda x: i in x, bins).index(True)
+            vectors[i, whichBin] = 1
+    return vectors
+
+
 if __name__ == '__main__':
     args = sys.argv
     if len(args) < 2:
-        k = 5
+        k = 10
     else:
         k = int(args[1]) # number of year bins to select
         # I imagine this being some function of the UI, so zooming can change this
 
     # Load data
-    mat = io.loadmat('../data/April_full_fixedTime_binary.mat') #'../data/April_full_dataset_binary.mat')
-    t = 3 # note when we change btw binary and not, need to change tau XXX
+    mat = io.loadmat('../data/April_full_new.mat') #'../data/April_full_fixedTime_binary.mat')
     images = mat['images'][:,0]
-    years = mat['timestamps']
-    faces = mat['faces']
-    print 'done loading'
-
-    # FOR TESTING XXX
-#    choices = sample(np.arange(images.shape[0]), 300)
-#    images = images[choices]
-#    years = years[choices]
-#    faces = faces[choices]
-
     n = images.shape[0]
     items = np.arange(n)
 
-    # Bin the times and make binary vector for each image
-    # XXX do some hacks to deal with missing times - if missing, assume it covers nothing
-    nonzeroYears = items[np.nonzero(years)[0]]
-    sortedYears = sorted(nonzeroYears, key=lambda i: years[i])
-    num = int(len(sortedYears) / k) + 1
-    bins = [sortedYears[x:x+num] for x in range(0, len(sortedYears), num)]
-    times = np.zeros((n, len(bins)))
-    for i in items:
-        if years[i] != 0:
-            whichBin = map(lambda x: i in x, bins).index(True)
-            times[i, whichBin] = 1
+    years = mat['timestamps'].reshape(n)
+    longitudes = mat['longitudes'].reshape(n)
+    latitudes = mat['latitudes'].reshape(n)
+    faces = mat['facesBinary'] #xxx
+    t = 3 ##0.5 # note when we change btw binary and not, need to change tau XXX
+    print 'done loading'
+
+    # FOR TESTING XXX
+    choices = sample(np.arange(images.shape[0]), 500)
+    images = images[choices]
+    years = years[choices]
+    longitudes = longitudes[choices]
+    latitudes = latitudes[choices]
+    faces = faces[choices]
+
+    # Bin times and GPS coordinates. If value is missing we assume it covers nothing.
+    times = bin(years, k)
+    longs = bin(longitudes, k)
+    lats = bin(latitudes, k)
+
+    # just need place-bins
+    places = np.zeros((n, k**2))
+    nonLongs = np.nonzero(longs)
+    nonLats = np.nonzero(lats)
+    for img, lo, la in zip(nonLongs[0], nonLongs[1], nonLats[1]):
+        places[img, lo + la*k] = 1
+    places = places[:, ~np.all(places == 0, axis=0)]
 
     # Find high-coverage coherent paths
     nodes, edges = buildCoherenceGraph(faces, times, m=3, tau=t, maxIter=100) #pretty fast
     print 'number of nodes', len(nodes)
     print 'done building graph'
-    paths = getCoherentPaths(nodes, edges, faces, times, l=5, k=4, i=2) #sure as hell not fast
+    paths = getCoherentPaths(nodes, edges, faces, times, places, l=5, k=4, i=2) #sure as hell not fast
     print 'done getting paths'
 
     # Get connections between lines
@@ -433,7 +444,7 @@ if __name__ == '__main__':
 
     # Save map to csv
     # Each image is separated by a comma, each path by a linebreak
-    output = open('tinyTest.csv', 'w+')
+    output = open('fasterBiggerToo.csv', 'w+')
     
     # First include connections
     output.write(','.join(map(str, list(cbook.flatten(connections)))) + '\n')
