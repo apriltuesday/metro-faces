@@ -271,7 +271,6 @@ def getCoherentPaths(nodes, edges, faces, times, places, l=3, k=2, i=5):
     between every two nodes in G, then we greedily choose the best
     path to add to the map and repeat.
     """
-    # TODO: kill the duplicate nodes dude
     map = []
     imgs = np.arange(faces.shape[0])
     B = l - len(nodes[0])
@@ -303,6 +302,8 @@ def getCoherentPaths(nodes, edges, faces, times, places, l=3, k=2, i=5):
     for im1 in imgs:
         starts = sample(beginsWith[im1], int(len(beginsWith[im1]) / 2.0))
         for im2 in imgs:
+            if im1 == im2:
+                continue
             ends = sample(endsWith[im2], int(len(endsWith[im2]) / 2.0))
             maxPath = []
             maxCov = 0.0

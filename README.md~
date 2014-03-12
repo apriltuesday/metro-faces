@@ -16,6 +16,8 @@ To do's:
 -e.g., no notion of wanting a small number of faces (core friends)
 -e.g., no notion of time
 
+-really need to speed this up, but how?
+
 
 Visualization -- making the map: [code from ezyang]
 -first pass: stops just labeled with image name, click to reveal image

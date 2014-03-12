@@ -1,28 +1,33 @@
 April Shen
 Metro maps X Photobios
 
-Currently:
+Currently (basically full pipeline):
 -cover faces (analogous to words) as in metro maps
--compute coverage w/ greedy algorithm
+-also bin timestamps and GPS locations and cover those
 -weighted by frequency in dataset
+-compute coverage w/ greedy algorithm
 -both binary 'bag of faces' + percentage of image taken up by face
 -build coherence graph (nodes=short coh. paths, edges if overlap)
+-use submodular orienteering to find high-coverage paths
+-we now do orienteering before we start choosing paths, since my guess is that
+ these paths don't change much on each iteration so recalculating is a
+ waste of time
 
 To do's:
--when choosing, use some measure of quality of image?
--weighting regions y/n?
-
--next is coherence - need to modify this notion
--e.g., no notion of wanting a small number of faces (core friends)
--e.g., no notion of time
-
--really need to speed this up, but how?
+-adding back connectivity
+-fancier things with face regions
+-really need to speed up submodular orienteering, but how?
+-will we need to have connectivity as a post-step?
+-will we need to put orienteering back into the loop?
+-"activations" i.e. small friend groups?
 
 
 Visualization -- making the map: [code from ezyang]
--first pass: stops just labeled with image name, click to reveal image
-       -should be easy because this info is in JSON...
-       -can hand-code some of this for proof of concept
 -stops 'labeled' with images (or nodes ARE images)
 -clicking on a stop brings up larger view of photo and maybe some metadata (faces etc)
 -eventually: toggle between lines=events and lines=social circles
+-zoom can control granularity of time (place?)
+
+To do's for now:
+-add back the timeline
+-change how we show connections
