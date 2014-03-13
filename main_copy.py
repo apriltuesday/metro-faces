@@ -21,7 +21,7 @@ placeWeights= []
 # This is index is me.  Eventually this gets incorporated into the UI...
 ME = 0
 # This is the minimum coherence constraint. Range: (0, 1]
-TAU = 0.3
+TAU = 0.7
 # This governs the connectivity/coverage tradeoff. Range: (0, 3]
 EPSILON = 0.1
 
@@ -275,10 +275,10 @@ def getCoherentPaths(nodes, edges, faces, times, places, l=3, k=2, maxRecur=5):
                 for s in starts:
                     for t in ends:
                         p, c = RG(s, t, B, map, nodes, edges, bPaths, faces, times, places, maxRecur)
-                        if (len(map) == 0 and c > maxCov) or c > maxCov + EPSILON:
+                        if (c > maxCov and len(map) == 0) or c > maxCov + EPSILON:
                             maxPath = p
                             maxCov = c
-                        elif len(map) != 0 and abs(c - maxCov) < EPSILON:
+                        elif abs(c - maxCov) < EPSILON:
                             # If close to max coverage, only choose if greater connectivity
                             newConn = connectivity(map + [p], faces)
                             if newConn > maxConn:
@@ -387,7 +387,7 @@ if __name__ == '__main__':
     print 'done loading'
 
     # FOR TESTING XXX
-    choices = sample(items, 500)
+    choices = sample(items, 300)
     images = images[choices]
     years = years[choices]
     longitudes = longitudes[choices]
@@ -432,7 +432,7 @@ if __name__ == '__main__':
 
     # Save map to csv
     # Each image is separated by a comma, each path by a linebreak
-    output = open('regionTest.csv', 'w+')
+    output = open('smallestTest.csv', 'w+')
     
     # First include connections
     output.write(','.join(map(str, list(cbook.flatten(connections)))) + '\n')

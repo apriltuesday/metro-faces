@@ -36,6 +36,7 @@ f.write('\n\n' + middle + '\n\n')
 # Write node information
 imgs = list(set(cbook.flatten(map)))
 # Need these for times and displaying images
+#mat = io.loadmat('../data/April_full_dataset_binary.mat')
 mat = io.loadmat('../data/April_full_dataset_binary.mat')
 images = mat['images'][:,0][imgs]
 times = mat['timestamps'][imgs]

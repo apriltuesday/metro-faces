@@ -1,4 +1,4 @@
-def increaseConnectivity(map, nodes, edges, faces, times, maxRecur=2):
+def increaseConnectivity(map, nodes, edges, faces, times, maxIter=1):
     """
     Increase connectivity of the existing map as follows. We attempt
     to replace each line with an alternative that does not decrease
