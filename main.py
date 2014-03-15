@@ -21,9 +21,9 @@ placeWeights= []
 # This is index is me.  Eventually this gets incorporated into the UI...
 ME = 0
 # This is the minimum coherence constraint. Range: (0, 1]
-TAU = 0.3
+TAU = 0.6
 # This governs the connectivity/coverage tradeoff. Range: (0, 3]
-EPSILON = 0.1
+EPSILON = 0.001
 
 
 def coverage(map, faces, times, places):
@@ -387,14 +387,14 @@ if __name__ == '__main__':
     print 'done loading'
 
     # FOR TESTING XXX
-    choices = sample(items, 500)
-    images = images[choices]
-    years = years[choices]
-    longitudes = longitudes[choices]
-    latitudes = latitudes[choices]
-    faces = faces[choices]
-    n = images.shape[0]
-    items = np.arange(n)
+#     choices = sample(items, 500)
+#     images = images[choices]
+#     years = years[choices]
+#     longitudes = longitudes[choices]
+#     latitudes = latitudes[choices]
+#     faces = faces[choices]
+#     n = images.shape[0]
+#     items = np.arange(n)
 
     # Bin times and GPS coordinates. If value is missing we assume it covers nothing.
     times = bin(years, k)
@@ -421,10 +421,10 @@ if __name__ == '__main__':
     placeWeights = placeWeights / np.linalg.norm(placeWeights)
 
     # Find high-coverage coherent paths
-    nodes, edges = buildCoherenceGraph(faces, times, m=3, tau=TAU, maxIter=100) #pretty fast
+    nodes, edges = buildCoherenceGraph(faces, times, m=3, tau=TAU, maxIter=200) #pretty fast
     print 'number of nodes', len(nodes)
     print 'done building graph'
-    paths = getCoherentPaths(nodes, edges, faces, times, places, l=5, k=4, maxRecur=2) #sure as hell not fast
+    paths = getCoherentPaths(nodes, edges, faces, times, places, l=5, k=5, maxRecur=2) #sure as hell not fast
     print 'done getting paths'
 
     # Get connections between lines
@@ -432,7 +432,7 @@ if __name__ == '__main__':
 
     # Save map to csv
     # Each image is separated by a comma, each path by a linebreak
-    output = open('regionTest.csv', 'w+')
+    output = open('large_run.csv', 'w+')
     
     # First include connections
     output.write(','.join(map(str, list(cbook.flatten(connections)))) + '\n')

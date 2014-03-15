@@ -46,17 +46,27 @@ f.write('\n\n' + middle + '\n\n')
 
 # Write node information
 imgs = list(set(cbook.flatten(map)))
-# Need these for times and displaying images
+# Need these for times, faces, and images
 mat = io.loadmat('../data/April_full_new.mat')
 images = mat['images'][:,0][imgs]
 times = mat['timestamps'][imgs]
+faces = mat['facesBinary'][imgs]
 
-for i, pic, date in zip(imgs, images, times):
+# Get a master list of names from contacts.xml
+names = []
+for line in open('../data/faces/contacts.xml'):
+    try:
+        rest = line[line.index('name=')+6:]
+        name = rest[:rest.index('"')]
+        names.append(name)
+    except ValueError:
+        continue
+
+for i, pic, date, ppl in zip(imgs, images, times, faces):
     f.write('<node id="n' + str(i) + '">')
     f.write('<data key="x">0</data> <data key="y">0</data> <data key="label">' + str(i) + '</data>')
 
     # Parse date into DD/MM/YYYY
-    # TODO missing dates???
     d = time.strftime('%d/%m/%Y', time.localtime(date[0]))
     f.write('<data key="date">' + d + '</data> <data key="dummy">0</data></node>\n')
 
@@ -64,7 +74,14 @@ for i, pic, date in zip(imgs, images, times):
     imgPath = 'images/' + str(i) + '.png'
     misc.imsave(websitePath + imgPath, pic)
     page = open(websitePath + 'imagePages/' + str(i) + '.html', 'w+')
-    page.write('<img src="' + imgPath + '">')
+    page.write('<img src="' + imgPath + '">\n')
+    d = time.strftime('%Y-%m-%d', time.localtime(date[0]))
+    page.write('<strong>' + d + '</strong><br>')
+    for j in range(len(ppl)):
+        if ppl[j] == 1:
+            page.write(names[j])
+            if (ppl[j+1:] != 0).any(): #not the end
+                page.write(', ')
     page.close()
 
 f.write('\n\n')
@@ -73,7 +90,7 @@ f.write('\n\n')
 # first line is always connection info, in consecutive pairs
 count = 0
 which = 0 #which link
-for j in range(0, len(links)-1, 2): # TODO fix this
+for j in range(0, len(links)-1, 2):
     f.write('<edge id="e' + str(count) + '" ')
     f.write('source="n' + str(links[j]) + '" target="n' + str(links[j+1]) + '">')
     f.write('<data key="link' + str(which) + '">true</data></edge>\n')
