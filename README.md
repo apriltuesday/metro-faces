@@ -27,7 +27,5 @@ Visualization -- making the map: [code from ezyang]
 -clicking on a stop brings up larger view of photo and maybe some metadata (faces etc)
 -eventually: toggle between lines=events and lines=social circles
 -zoom can control granularity of time (place?)
-
-To do's for now:
--add back the timeline
--change how we show connections
+-fancy automatic layout generation
+-scrub or hover to show intervening photos on the line
