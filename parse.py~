@@ -116,7 +116,7 @@ for filename in os.listdir(directory):
         continue
 
 # Save as .mat file
-io.savemat('../data/April_full_gps.mat', {'images': images,
+io.savemat('../data/April_full_new.mat', {'images': images,
                                           'timestamps': times,
                                           'longitudes': longs,
                                           'latitudes': lats,
