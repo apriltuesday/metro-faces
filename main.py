@@ -29,7 +29,7 @@ def coverage(map, xs):
 #    vects = np.hstack([faces, times, places]) #XXX regions
 #    weights = np.hstack([faceWeights, timeWeights, placeWeights])
     weights = np.ones(xs.shape[1])
-    total = (1 - np.prod(1 - xs[subset], axis=0)).dot(weights)
+    total = (1 - np.prod(1 - xs[subset], axis=0)).dot(weights) # TODO add back weighting
     return total
 
 
@@ -53,11 +53,10 @@ if __name__ == '__main__':
     # Load data
     mat = io.loadmat('../data/April_full_new.mat')
     images = mat['images'][:,0]
-    faces = mat['facesBinary'] 
+    faces = mat['faces'] + mat['facesBinary'] 
 #    years = mat['timestamps'].reshape(n)
 #    longitudes = mat['longitudes'].reshape(n)
 #    latitudes = mat['latitudes'].reshape(n)
-#    faces = mat['faces'] + mat['facesBinary']
 
     # Get a master list of names from contacts.xml
     names = []
@@ -83,7 +82,7 @@ if __name__ == '__main__':
     A = np.array([np.sum(np.product(faces[:,[i, j]], axis=1)) for i in ppl for j in ppl]).reshape((m,m))
 
     # Graph that sucker
-    colors = cm.get_cmap(name='Spectral')
+#    colors = cm.get_cmap(name='Spectral')
     G = nx.Graph(A)
     nodes = [A[i,i] for i in ppl]
     edges = []
@@ -106,12 +105,25 @@ if __name__ == '__main__':
     whichClusters = []
     for i in range(NUM_LINES):
         greedy(whichClusters, clusters, faces.T)
-    #whichClusters is a list of lists, each of which lists face indices in that cluster
     for i in range(NUM_LINES):
         for j in whichClusters[i]:
             print j, names[j]
         print '------'
 
-    # For each face cluster, choose representative photos (TODO)
+    # For each face cluster, choose representative photos
+    map = []
+    for cl in whichClusters:
+        # get photos that contain faces in this cluster
+        pool = set(np.nonzero(faces[:,cl])[0])
+        greedy(map, pool, faces)
+        # TODO want to cover as many faces in this cluster as possible
+
+    # Display
+    plt.figure(0)
+    for i in range(NUM_LINES):
+        img = map[i]
+        plt.subplot(1, NUM_LINES, i+1)
+        plt.title('image ' + str(img))
+        plt.imshow(images[img])
 
     plt.show()
