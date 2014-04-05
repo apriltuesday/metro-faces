@@ -6,6 +6,7 @@ from __future__ import division
 import sys
 import numpy as np
 import scipy.io as io
+import scipy.misc as misc
 #import scipy.cluster as cluster
 import networkx as nx
 import sklearn.cluster as cluster
@@ -138,9 +139,9 @@ def bin(values, k):
     return vectors
 
 
-def saveMap(filename, paths):
+def saveMap(filename, paths, images):
     """
-    Save map in a JSON file
+    Save map in a JSON file. Also save the corresponding photos.
     """
     f = open(filename, 'w+')
     nodes = list(set(cbook.flatten(paths)))
@@ -152,6 +153,8 @@ def saveMap(filename, paths):
     f.write('{ "nodes": [\n')
     # Write nodes
     for node in nodes:
+        imgPath = 'images/' + str(node) + '.png'
+        misc.imsave(websitePath + imgPath, images[node])
         strs.append('{"id": "' + str(node) + '", "line": ' + str(pathInd[node]) + '}')
     f.write(',\n'.join(strs) + '],\n"links": [\n')
     strs = []
@@ -159,7 +162,7 @@ def saveMap(filename, paths):
     for i in range(len(paths)):
         p = paths[i]
         for j in range(0, len(p)-1):
-            strs.append('{"source": ' + str(nodes.index(p[j])) + ',  "target": ' + str(nodes.index(p[j+1])) + ', "line": ' + str(i) + '}')
+            strs.append('{"source": ' + str(nodes.index(p[j])) + ',  "target": ' + str(nodes.index(p[j+1])) + ', "line": ' + str(i+1) + '}')
     f.write(',\n'.join(strs) + '] }')
     f.close()
 
@@ -301,7 +304,7 @@ if __name__ == '__main__':
     # Save feature vectors to json TODO
 
     # Save map to json
-    saveMap(websitePath + prefix + '-map.json', paths)
+    saveMap(websitePath + prefix + '-map.json', paths, images)
 
     # Display paths
     for i in range(NUM_LINES):
