@@ -15,6 +15,7 @@ import matplotlib.cbook as cbook
 import matplotlib.cm as cm
 from random import sample, choice, shuffle, random
 import Queue
+import json
 
 # Constraints of the map
 NUM_LINES = 5
@@ -193,12 +194,18 @@ def saveGraph(filename, A, clusters, names):
     f.close()
 
 
+def saveFeatures(filename, faces, dates, longs, lats):
+    """
+    Save feature vectors in a JSON file.
+    """
+    f = open(filename, 'w+')
+    data = {'faces': faces.tolist(), 'dates': dates.tolist(), 'longs': longs.tolist(), 'lats': lats.tolist()}
+    json.dump(data, f)
+    f.close()
+
+
 if __name__ == '__main__':
 #     args = sys.argv
-#     if len(args) < 2:
-#         k = 10
-#     else:
-#         k = int(args[1]) # number of year bins to select; ultimately a function of zooming/the UI
 
     # Load data
     mat = io.loadmat('../data/April_full_gps.mat')
@@ -298,10 +305,14 @@ if __name__ == '__main__':
         print 'done with iteration', iter
         iter += 1
 
-    # Save adjacency matrix to json (grouped by cluster as shown in map)
+    # Save adjacency matrix to json
     saveGraph(websitePath + prefix + '-graph.json', A, whichClusters, names)
     
-    # Save feature vectors to json TODO
+    # Save feature vectors to json
+    np.place(years, np.isinf(years), np.min(years))
+    np.place(longitudes, np.isinf(longitudes), 0)
+    np.place(latitudes, np.isinf(latitudes), 0)
+    saveFeatures(websitePath + prefix + '-feats.json', faces, years, longitudes, latitudes)
 
     # Save map to json
     saveMap(websitePath + prefix + '-map.json', paths, images)
@@ -316,3 +327,4 @@ if __name__ == '__main__':
             plt.imshow(images[img])
 
     plt.show()
+# TODO god the incorrect dates are irritating
