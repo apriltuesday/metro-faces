@@ -9,7 +9,7 @@ import scipy.misc as misc
 import matplotlib.cbook as cbook
 
 filename = sys.argv[1]
-websitePath = '/Users/april/Dropbox/project/apriltuesday.github.io/'
+websitePath = '/Users/april/Dropbox/classes/CSE576/project/apriltuesday.github.io/'
 
 # Some boilerplate we need
 header = '<?xml version="1.0" encoding="iso-8859-1"?><graphml xmlns="http://graphml.graphdrawing.org/xmlns"xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd"> <key id="x" for="node" attr.name="x coordinate" attr.type="int"/> <key id="y" for="node" attr.name="y coordinate" attr.type="int"/> <key id="label" for="node" attr.name="station name" attr.type="string"/> <key id="date" for="node" attr.name="date" attr.type="string"/> <key id="dummy" for="node" attr.name="dummy" attr.type="int"> <default>0</default> </key>'
@@ -23,19 +23,19 @@ for l in open(filename + '.csv'):
     map.append(line)
 
 # First line in the file is actually links
-#links = map[0]
-#numLinks = len(links) / 2
-#map = map[1:]
+links = map[0]
+numLinks = len(links) / 2
+map = map[1:]
 
 # Create graphml file of same name
 f = open(websitePath + filename + '.graphml', 'w+')
 f.write(header + '\n\n')
 
 # Write link/connection information
-#for i in range(numLinks):
-#    f.write('<key id="link' + str(i) + '" for="edge" attr.name="link ' + str(i))
-#    f.write('" attr.type="boolean" color.r="0" color.g="255" color.b="0" importance="10" title=""><default>FALSE</default></key>\n')
-#f.write('\n')
+for i in range(numLinks):
+    f.write('<key id="link' + str(i) + '" for="edge" attr.name="link ' + str(i))
+    f.write('" attr.type="boolean" color.r="0" color.g="255" color.b="0" importance="10" title=""><default>FALSE</default></key>\n')
+f.write('\n')
 
 # Write line information
 for i in range(len(map)):
@@ -89,14 +89,14 @@ f.write('\n\n')
 # Write edge information
 # first line is always connection info, in consecutive pairs
 count = 0
-#which = 0 #which link
-#for j in range(0, len(links)-1, 2):
-#    f.write('<edge id="e' + str(count) + '" ')
-#    f.write('source="n' + str(links[j]) + '" target="n' + str(links[j+1]) + '">')
-#    f.write('<data key="link' + str(which) + '">true</data></edge>\n')
-#    which += 1
-#    count += 1
-#f.write('\n')    
+which = 0 #which link
+for j in range(0, len(links)-1, 2):
+    f.write('<edge id="e' + str(count) + '" ')
+    f.write('source="n' + str(links[j]) + '" target="n' + str(links[j+1]) + '">')
+    f.write('<data key="link' + str(which) + '">true</data></edge>\n')
+    which += 1
+    count += 1
+f.write('\n')    
 
 # the other lines
 for i in range(len(map)):

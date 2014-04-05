@@ -25,6 +25,10 @@ NUM_CLUSTERS = 150
 NUM_TIMES = 100
 NUM_LOCS = 50
 
+# For output files etc.
+websitePath = '../apriltuesday.github.io/'
+prefix = 'test'
+
 
 def coverage(map, xs, weights):
     """
@@ -134,6 +138,58 @@ def bin(values, k):
     return vectors
 
 
+def saveMap(filename, paths):
+    """
+    Save map in a JSON file
+    """
+    f = open(filename, 'w+')
+    nodes = list(set(cbook.flatten(paths)))
+    pathInd = {} #easier form to work with here
+    for i in range(len(paths)):
+        for j in paths[i]:
+            pathInd[j] = i+1
+    strs = []
+    f.write('{ "nodes": [\n')
+    # Write nodes
+    for node in nodes:
+        strs.append('{"id": "' + str(node) + '", "line": ' + str(pathInd[node]) + '}')
+    f.write(',\n'.join(strs) + '],\n"links": [\n')
+    strs = []
+    # Write links
+    for i in range(len(paths)):
+        p = paths[i]
+        for j in range(0, len(p)-1):
+            strs.append('{"source": ' + str(nodes.index(p[j])) + ',  "target": ' + str(nodes.index(p[j+1])) + ', "line": ' + str(i) + '}')
+    f.write(',\n'.join(strs) + '] }')
+    f.close()
+
+
+def saveGraph(filename, A, clusters, names):
+    """
+    Save graph defined by adjacency matrix A in a JSON file.
+    Also store their cluster (if existant) and name.
+    """
+    f = open(filename, 'w+')
+    nodes = np.arange(A.shape[0])
+    clusterInd = {} #easier form to work with here
+    for i in range(len(clusters)):
+        for j in clusters[i]:
+            clusterInd[j+1] = i+1
+    strs = []
+    f.write('{ "nodes": [\n')
+    # Write nodes
+    for node in nodes:
+        strs.append('{"name": "' + names[node] + '", "group": ' + str(clusterInd[node] if node in clusterInd.keys() else 0) + '}')
+    f.write(',\n'.join(strs) + '],\n"links": [\n')
+    strs = []
+    # Write links
+    xs, ys = np.nonzero(A)
+    for i, j in zip(xs, ys):
+        strs.append('{"source": ' + str(i) + ',  "target": ' + str(j) + ', "value": ' + str(A[i,j]) + '}')
+    f.write(',\n'.join(strs) + '] }')
+    f.close()
+
+
 if __name__ == '__main__':
 #     args = sys.argv
 #     if len(args) < 2:
@@ -217,7 +273,7 @@ if __name__ == '__main__':
 
     vects = np.hstack([faces, times, places])
     weights = np.hstack([faceWeights, timeWeights, placeWeights])
-    map = []
+    paths = []
     iter = 1
     # For each face cluster, get high-coverage coherent path for its photos
     for cl in whichClusters:
@@ -234,15 +290,23 @@ if __name__ == '__main__':
                 if img not in path and coherence(path + [img], faces, times) > TAU:
                     newPool.append(img)
             pool = newPool
-        map.append(sorted(path, key=lambda x: np.nonzero(times[x])[0][0]))
+        paths.append(sorted(path, key=lambda x: np.nonzero(times[x])[0][0]))
 
         print 'done with iteration', iter
         iter += 1
 
+    # Save adjacency matrix to json (grouped by cluster as shown in map)
+    saveGraph(websitePath + prefix + '-graph.json', A, whichClusters, names)
+    
+    # Save feature vectors to json TODO
+
+    # Save map to json
+    saveMap(websitePath + prefix + '-map.json', paths)
+
     # Display paths
     for i in range(NUM_LINES):
         plt.figure(i+1)
-        path = map[i]
+        path = paths[i]
         for j, img in zip(range(len(path)), path):
             plt.subplot(1, len(path), j+1)
             plt.title('image ' + str(img))
