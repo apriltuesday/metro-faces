@@ -29,7 +29,7 @@ NUM_LOCS = 100
 
 # For output files etc.
 websitePath = '../apriltuesday.github.io/'
-prefix = 'large'
+prefix = 'newlarge'
 
 
 def coverage(map, xs, weights):
@@ -284,7 +284,6 @@ if __name__ == '__main__':
     vects = np.hstack([faces, times, places])
     weights = np.hstack([faceWeights, timeWeights, placeWeights])
     paths = []
-    iter = 1
     # For each face cluster, get high-coverage coherent path for its photos
     for cl in whichClusters:
         pool = list(set(np.nonzero(faces[:,cl])[0])) #photos containing these faces
@@ -302,18 +301,6 @@ if __name__ == '__main__':
             pool = newPool
         paths.append(sorted(path, key=lambda x: np.nonzero(times[x])[0][0]))
 
-        print 'done with iteration', iter
-        iter += 1
-
-    # Save adjacency matrix to json
-    saveGraph(websitePath + prefix + '-graph.json', A, whichClusters, names)
-    
-    # Save feature vectors to json
-    np.place(years, np.isinf(years), np.min(years))
-    np.place(longitudes, np.isinf(longitudes), 0)
-    np.place(latitudes, np.isinf(latitudes), 0)
-    saveFeatures(websitePath + prefix + '-feats.json', faces, years, longitudes, latitudes)
-
     # Order lines according to shared images
     # This makes the visualization easier and is kind of a huge hack
     i = 0
@@ -329,7 +316,20 @@ if __name__ == '__main__':
             temp = paths[maxJ]
             paths[maxJ] = paths[i+1]
             paths[i+1] = temp
+            # also swap corresponding face clusters
+            temp = whichClusters[maxJ]
+            whichClusters[maxJ] = whichClusters[i+1]
+            whichClusters[i+1] = temp
         i += 1
+
+    # Save adjacency matrix to json
+    saveGraph(websitePath + prefix + '-graph.json', A, whichClusters, names)
+    
+    # Save feature vectors to json
+    np.place(years, np.isinf(years), np.min(years))
+    np.place(longitudes, np.isinf(longitudes), 0)
+    np.place(latitudes, np.isinf(latitudes), 0)
+    saveFeatures(websitePath + prefix + '-feats.json', faces, years, longitudes, latitudes)
 
     # Save map to json
     saveMap(websitePath + prefix + '-map.json', paths, images)

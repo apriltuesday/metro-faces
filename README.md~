@@ -1,6 +1,12 @@
 April Shen
 Metro maps X Photobios
 
+New focus on social graph, relationships
+More lightweight notion of coherence (using co-clustering)
+More on the user interface and interaction components
+
+-------------------------------------------------
+
 Currently (basically full pipeline):
 -cover faces (analogous to words) as in metro maps
 -also bin timestamps and GPS locations and cover those
