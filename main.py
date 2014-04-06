@@ -18,18 +18,18 @@ import Queue
 import json
 
 # Constraints of the map
-NUM_LINES = 5
-NUM_PHOTOS = 5
+NUM_LINES = 8
+NUM_PHOTOS = 8
 TAU = 0.2 # This is the minimum coherence constraint
 
 # Numbers of bins
 NUM_CLUSTERS = 150
 NUM_TIMES = 100
-NUM_LOCS = 50
+NUM_LOCS = 100
 
 # For output files etc.
 websitePath = '../apriltuesday.github.io/'
-prefix = 'test'
+prefix = 'large'
 
 
 def coverage(map, xs, weights):
@@ -313,6 +313,23 @@ if __name__ == '__main__':
     np.place(longitudes, np.isinf(longitudes), 0)
     np.place(latitudes, np.isinf(latitudes), 0)
     saveFeatures(websitePath + prefix + '-feats.json', faces, years, longitudes, latitudes)
+
+    # Order lines according to shared images
+    # This makes the visualization easier and is kind of a huge hack
+    i = 0
+    while i < NUM_LINES:
+        maxInt = 0
+        maxJ = 0
+        for j in range(len(paths[i+1:])):
+            intersect = len(set(paths[i]) & set(path))
+            if intersect > maxInt: #largest intersection
+                maxJ = j
+                maxInt = intersect
+        if maxInt > 0: #swap
+            temp = paths[maxJ]
+            paths[maxJ] = paths[i+1]
+            paths[i+1] = temp
+        i += 1
 
     # Save map to json
     saveMap(websitePath + prefix + '-map.json', paths, images)
