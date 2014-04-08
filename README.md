@@ -19,12 +19,13 @@
 #### Metro Map
 * features: faces (weighted by region size), timestamp (binned), GPS location (binned)
 * features weighted by frequency in dataset
-* timestamps correcting by drawing from a distribution, defined by valid timestamps of
+* timestamps corrected by drawing from a normal distribution, defined by valid timestamps of
   photos in the same cluster (something of a hack)
 * faces clustered by co-clustering co-occurrence matrix (w/o me)
 * greedily choose a face cluster per metro line based on coverage of photos
-* for each line, greedily choose photos containing at least one face in its cluster,
-  throwing out photos not sufficiently coherent with existing line on each iteration
+* for each line, greedily (based on coverage of faces/times/place) choose photos containing
+  at least one face in its cluster, throwing out photos not sufficiently coherent with
+  existing line on each iteration
 * sort each line by time
 * visualization: force-directed layout with custom gravity (x-axis based on time,
   y-axis for separation of lines) and collision detection (so nodes don't overlap)

@@ -28,7 +28,7 @@ NUM_LOCS = 200
 
 # For output files etc.
 websitePath = '../apriltuesday.github.io/'
-prefix = 'newlarge'
+prefix = 'newesttest'
 
 
 def coverage(map, xs, weights):
