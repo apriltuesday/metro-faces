@@ -8,10 +8,10 @@
 * More work on the user interface and interaction components
 
 #### To-do's
-* soft clustering (BigClam?)
+* soft clustering/overlapping community detection of faces (BigClam?)
 * more principled (but still fast) coherence algorithm
-* more principled way of doing layout of lines
-* structure/connectivity optimization
+* structure/connectivity optimization (possibly not necessary)
+* better line layout, display of connections, non-overlapping links
 * coordinated selection between metro map and social graph
 * add the geographic map
 * zooming and on-the-fly map creation
@@ -19,7 +19,7 @@
 #### Metro Map
 * features: faces (weighted by region size), timestamp (binned), GPS location (binned)
 * features weighted by frequency in dataset
-* timestamps corrected by drawing from a normal distribution, defined by valid timestamps of
+* timestamps corrected by drawing from a distribution defined by valid timestamps of
   photos in the same cluster (something of a hack)
 * faces clustered by co-clustering co-occurrence matrix (w/o me)
 * greedily choose a face cluster per metro line based on coverage of photos

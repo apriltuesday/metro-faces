@@ -17,7 +17,7 @@ from random import sample, choice, shuffle, random
 import Queue
 
 # Constraints of the map
-NUM_LINES = 10
+NUM_LINES = 8
 NUM_PHOTOS = 8
 TAU = 0.2 # This is the minimum coherence constraint
 
@@ -28,7 +28,7 @@ NUM_LOCS = 200
 
 # For output files etc.
 websitePath = '../apriltuesday.github.io/'
-prefix = 'test'
+prefix = 'newtest'
 
 
 def coverage(map, xs, weights):
@@ -223,15 +223,25 @@ def binValues(years, longitudes, latitudes):
 def fixInvalid(years):
     """
     Fix invalid timestamps, by replacing with a random value generated
-    from normal distribution with empirical mean and std dev
+    from the distribution of valid times within years.
     """
     # Invalid timestamps are (in our case) Feb 2014 (huge hack alert XXX)
     timeObjs = [time.localtime(y) for y in years]
     invalid = [x.tm_year == 2014 and x.tm_mon == 2 for x in timeObjs]
     valid = np.ma.masked_where(invalid, years)
+
+    # TODO pick the appropriate distribution?
     mu = np.ma.mean(valid)
     sigma = np.ma.std(valid)
-    years[valid.mask] = np.round(np.random.normal(mu, sigma, valid[valid.mask].shape))
+    a = np.ma.min(valid)
+    b = np.ma.max(valid)
+    correctMu = (mu - a) / (b - a)
+    correctSigma = sigma / (b - a)**2
+    alpha = correctMu * ((correctMu - correctMu**2) / correctSigma - 1)
+    beta = (1 - correctMu) * alpha / correctMu
+    #np.round(np.random.normal(mu, sigma, valid[valid.mask].shape))
+    #np.round(np.random.uniform(np.ma.min(valid), np.ma.max(valid), valid[valid.mask].shape))
+    years[valid.mask] = np.round(np.random.beta(alpha, beta, valid[valid.mask].shape) * (b-a) + a)
     return years
     
 
@@ -346,8 +356,7 @@ if __name__ == '__main__':
     # Cluster the faces
     faceClusters = clusterFaces(A[1:, 1:], faces)
                                
-    # Fix invalid timestamps for photos within each cluster
-    # TODO GPS?
+    # Fix invalid timestamps for photos
     for cl in faceClusters:
         pool = list(set(np.nonzero(faces[:,cl])[0])) #photos containing these faces
         years[pool] = fixInvalid(years[pool])
