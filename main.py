@@ -18,7 +18,7 @@ import Queue
 
 # Constraints of the map
 NUM_LINES = 10
-NUM_PHOTOS = 7
+NUM_PHOTOS = 8
 TAU = 0.2 # This is the minimum coherence constraint
 
 # Numbers of bins
@@ -28,7 +28,7 @@ NUM_LOCS = 200
 
 # For output files etc.
 websitePath = '../apriltuesday.github.io/'
-prefix = 'newesttest'
+prefix = 'test'
 
 
 def coverage(map, xs, weights):
@@ -83,6 +83,26 @@ def connectivity(map, faces):
             if np.logical_and(faces[flatMap[u]].sum(axis=0) != 0, faces[flatMap[v]].sum(axis=0) != 0).any(): #intersect
                 total += 1
     return total
+
+
+def getConnections(map, faces):
+    """
+    Return a list of pairwise connections, where two photos are
+    connected if they are in different lines and share at least one
+    face.
+    """
+    connections = []
+    for u in np.arange(NUM_LINES):
+        for v in np.arange(u+1, NUM_LINES):
+            for i in map[u]:
+                if i in map[v]:
+                    continue
+                for j in map[v]:
+                    if j in map[u]:
+                        continue #XXX the hell is going on here?
+                    if faces[i].dot(faces[j]) > 0:
+                        connections.append((i,j))
+    return connections
 
 
 def greedy(map, candidates, xs, weights):
@@ -228,7 +248,7 @@ def getWeights(faces, times, places):
     return np.hstack([faceWeights, timeWeights, placeWeights])
 
 
-def saveMap(filename, paths, images):
+def saveMap(filename, paths, connections, images):
     """
     Save map in a JSON file. Also save the corresponding photos.
     """
@@ -239,20 +259,26 @@ def saveMap(filename, paths, images):
         for j in paths[i]:
             pathInd[j] = i+1
     strs = []
-    f.write('{ "nodes": [\n')
+
     # Write nodes
+    f.write('{ "nodes": [\n')
     for node in nodes:
         imgPath = 'images/' + str(node) + '.png'
         misc.imsave(websitePath + imgPath, images[node])
         strs.append('{"id": ' + str(node) + ', "line": ' + str(pathInd[node]) + '}')
     f.write(',\n'.join(strs) + '],\n"links": [\n')
     strs = []
+
+    # Write connections (line 0)
+    for i in range(len(connections)):
+        s,t = connections[i]
+        strs.append('{"source": ' + str(nodes.index(s)) + ',  "target": ' + str(nodes.index(t)) + ', "line": 0}')
     # Write links
     for i in range(len(paths)):
         p = paths[i]
         for j in range(0, len(p)-1):
             strs.append('{"source": ' + str(nodes.index(p[j])) + ',  "target": ' + str(nodes.index(p[j+1])) + ', "line": ' + str(i+1) + '}')
-    f.write(',\n'.join(strs) + '] }')
+    f.write(',\n'.join(strs) + ']}')
     f.close()
 
 
@@ -354,6 +380,9 @@ if __name__ == '__main__':
     # Re-order lines (in place)
     orderLines(paths, faceClusters)
 
+    # Find connections (shared faces) between lines
+    connections = getConnections(paths, faces)
+
     ########### SAVING THE DATA ###############
 
     # Save adjacency matrix to json
@@ -366,7 +395,7 @@ if __name__ == '__main__':
     saveFeatures(websitePath + prefix + '-feats.json', faces, years, longitudes, latitudes)
 
     # Save map to json
-    saveMap(websitePath + prefix + '-map.json', paths, images)
+    saveMap(websitePath + prefix + '-map.json', paths, connections, images)
 
 #     # Graph that sucker
 #     plt.figure(0)
