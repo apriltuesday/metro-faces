@@ -11,6 +11,7 @@
 * soft clustering (BigClam?)
 * more principled (but still fast) coherence algorithm
 * more principled way of doing layout of lines
+* structure/connectivity optimization
 * coordinated selection between metro map and social graph
 * add the geographic map
 * zooming and on-the-fly map creation
@@ -18,6 +19,8 @@
 #### Metro Map
 * features: faces (weighted by region size), timestamp (binned), GPS location (binned)
 * features weighted by frequency in dataset
+* timestamps correcting by drawing from a distribution, defined by valid timestamps of
+  photos in the same cluster (something of a hack)
 * faces clustered by co-clustering co-occurrence matrix (w/o me)
 * greedily choose a face cluster per metro line based on coverage of photos
 * for each line, greedily choose photos containing at least one face in its cluster,
