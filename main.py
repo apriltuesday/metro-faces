@@ -14,10 +14,11 @@ import matplotlib.pyplot as plt
 import matplotlib.cbook as cbook
 import matplotlib.cm as cm
 from random import sample, choice, shuffle, random
+from collections import Counter
 import Queue
 
 # Constraints of the map
-NUM_LINES = 8
+NUM_LINES = 10
 NUM_PHOTOS = 8
 TAU = 0.2 # This is the minimum coherence constraint
 
@@ -28,7 +29,7 @@ NUM_LOCS = 200
 
 # For output files etc.
 websitePath = '../apriltuesday.github.io/'
-prefix = 'newtest'
+prefix = 'newertest'
 
 
 def coverage(map, xs, weights):
@@ -105,18 +106,20 @@ def getConnections(map, faces):
     return connections
 
 
-def greedy(map, candidates, xs, weights):
+def greedy(map, path, candidates, xs, weights):
     """
     Greedily choose the max-coverage candidate and add to map.
     """
     maxCoverage = 0.0
     maxP = 0
+    total = list(set(cbook.flatten(map))) + path
     for p in candidates:
-        c = coverage(map + [p], xs, weights)
+        c = coverage(total + [p], xs, weights)
         if c > maxCoverage:
             maxCoverage = c
             maxP = p
-    map.append(maxP)
+#    map.append(maxP)
+    path.append(maxP)
 
 
 def clusterFaces(A, faces):
@@ -124,15 +127,30 @@ def clusterFaces(A, faces):
     Cluster faces using co-clustering of co-occurrence matrix A.
     Return the clusters we use for lines, which maximally cover the photos.
     """
+    #c = cluster.SpectralClustering(n_clusters=NUM_CLUSTERS)
     c = cluster.bicluster.SpectralCoclustering(n_clusters=NUM_CLUSTERS, svd_method='arpack')
     c.fit(A)
     clusters = [] #list of lists, each of which lists face indices in that cluster
     for i in range(NUM_CLUSTERS):
         clusters.append(c.get_indices(i)[0])
+        
     whichClusters = []
     for i in range(NUM_LINES):
         greedy(whichClusters, clusters, faces.T, np.ones(n))
     return whichClusters
+
+
+def altClusterFaces(faces):
+    """
+    Cluster faces using group counts. Return clusters with max counts.
+    """
+    c = Counter()
+    for img in np.arange(faces.shape[0]):
+        group = tuple(sorted(np.nonzero(faces[img])[0]))
+        if len(group) > 0 and len(group) < 20:
+            c[group] += 1
+    sortedClusters = sorted(c, key=lambda x: 1/(c[x] * len(x))) # by count and by size xxx
+    return sortedClusters[:NUM_LINES]
 
 
 def orderLines(paths, faceClusters):
@@ -200,7 +218,7 @@ def bin(values, k):
     return vectors
 
 
-def binValues(years, longitudes, latitudes):
+def binValues(years, longitudes, latitudes, valid):
     """
     Bin times and GPS coordinates.  If a value is missing, we assume
     it covers nothing (shouldn't happen if we correct invalid values
@@ -208,6 +226,7 @@ def binValues(years, longitudes, latitudes):
     """
     times = bin(years, NUM_TIMES)
     times = times[:, ~np.all(times == 0, axis=0)]
+#    times[valid.mask] = np.zeros(times.shape[1]) #invalid photos cover no times TODO fix this?
     longs = bin(longitudes, NUM_LOCS)
     lats = bin(latitudes, NUM_LOCS)
     # just need place-bins, not individual long/lat
@@ -249,11 +268,12 @@ def getWeights(faces, times, places):
     """
     Weight importance of faces, times, places by frequency (normalized).
     """
-    faceWeights = np.apply_along_axis(np.count_nonzero, 0, faces)
+    #faceWeights = np.apply_along_axis(np.count_nonzero, 0, faces)
+    faceWeights = np.apply_along_axis(np.sum, 0, faces)
     faceWeights = faceWeights / np.linalg.norm(faceWeights)
-    timeWeights = np.apply_along_axis(np.count_nonzero, 0, times)
+    timeWeights = np.apply_along_axis(np.sum, 0, times)
     timeWeights = timeWeights / np.linalg.norm(timeWeights)
-    placeWeights = np.apply_along_axis(np.count_nonzero, 0, places)
+    placeWeights = np.apply_along_axis(np.sum, 0, places)
     placeWeights = placeWeights / np.linalg.norm(placeWeights)
     return np.hstack([faceWeights, timeWeights, placeWeights])
 
@@ -352,36 +372,52 @@ if __name__ == '__main__':
     A = np.array([np.sum(np.product(faces[:,[i, j]], axis=1)) for i in ppl for j in ppl]).reshape((m,m))
     # now omit ME
     faces = faces[:,1:]
+    ppl = np.arange(m-1)
 
-    # Cluster the faces
-    faceClusters = clusterFaces(A[1:, 1:], faces)
-                               
+    # Cluster the faces TODO XXX
+    #faceClusters = clusterFaces(A[1:, 1:], faces)
+    faceClusters = altClusterFaces(faces)
+    
+    # Invalid timestamps are (in our case) Feb 2014 (huge hack alert XXX)
+    timeObjs = [time.localtime(y) for y in years]
+    invalid = [x.tm_year == 2014 and x.tm_mon == 2 for x in timeObjs]
+    valid = np.ma.masked_where(invalid, years)
     # Fix invalid timestamps for photos
     for cl in faceClusters:
         pool = list(set(np.nonzero(faces[:,cl])[0])) #photos containing these faces
         years[pool] = fixInvalid(years[pool])
 
     # Bin times and GPS coordinates
-    times, places = binValues(years, longitudes, latitudes)
+    times, places = binValues(years, longitudes, latitudes, valid)
 
     ########### CREATING THE MAP ###############
 
     vects = np.hstack([faces, times, places])
-    weights = getWeights(faces, times, places)
+#    weights = getWeights(faces, times, places)
     paths = []
     # For each face cluster, get high-coverage coherent path for its photos
     for cl in faceClusters:
-        pool = list(set(np.nonzero(faces[:,cl])[0])) #photos containing these faces
+        #XXX
+        other = np.empty(faces.shape)
+        other[:, cl] = faces[:, cl]
+        ind = list(set(ppl) - set(cl))
+        other[:, ind] = -faces[:,ind]
+        weights = getWeights(other, times, places)
+
+#        pool = list(set(np.nonzero(faces[:,cl])[0])) #photos containing these faces
+        nonz = np.nonzero(faces[:,cl])[0]
+        sumz = dict(zip(nonz, np.sum(faces[nonz][:,cl], axis=1)))
+        pool = filter(lambda x: x in sumz.keys() and sumz[x]>len(cl)*TAU, photos) # choose a pool containing at least len(cl)*TAU coverage of faces within cl
         path = []
 
         for i in range(NUM_PHOTOS):
             if len(pool) == 0:
                 break
-            greedy(path, pool, vects, weights)
+            greedy(paths, path, pool, vects, weights)
             # throw out photos not coherent with path
             newPool = []
             for img in pool:
-                if img not in path and coherence(path + [img], faces, times) > TAU:
+                if img not in path and coherence(path + [img], faces, times) > len(cl)*TAU: #xxx
                     newPool.append(img)
             pool = newPool
         paths.append(sorted(path, key=lambda x: years[x]))
@@ -390,7 +426,7 @@ if __name__ == '__main__':
     orderLines(paths, faceClusters)
 
     # Find connections (shared faces) between lines
-    connections = getConnections(paths, faces)
+#    connections = getConnections(paths, faces)
 
     ########### SAVING THE DATA ###############
 
@@ -404,7 +440,7 @@ if __name__ == '__main__':
     saveFeatures(websitePath + prefix + '-feats.json', faces, years, longitudes, latitudes)
 
     # Save map to json
-    saveMap(websitePath + prefix + '-map.json', paths, connections, images)
+    saveMap(websitePath + prefix + '-map.json', paths, [], images)
 
 #     # Graph that sucker
 #     plt.figure(0)

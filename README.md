@@ -1,4 +1,4 @@
-# Metro Maps for Photos
+# Metro Maps of Photos
 ## April Shen (april@cs.uw.edu)
 
 ### Current Version (main.py)
@@ -29,8 +29,7 @@
 * sort each line by time
 * visualization: force-directed layout with custom gravity (x-axis based on time,
   y-axis for separation of lines) and collision detection (so nodes don't overlap)
-* hacky things: wrong timestamps are modified to the latest valid timestamp in each line;
-  lines are organized vertically roughly so that lines sharing photos are nearby
+* hacky things: lines are organized vertically roughly so that lines sharing photos are nearby
 
 #### Social Graph
 * approximation of social graph induced from photos
