@@ -20,7 +20,7 @@ import Queue
 # Constraints of the map
 NUM_LINES = 10
 NUM_PHOTOS = 8
-TAU = 0.2 # This is the minimum coherence constraint
+TAU = 0.5 # This is the minimum coherence constraint
 
 # Numbers of bins
 NUM_CLUSTERS = 200
@@ -29,7 +29,7 @@ NUM_LOCS = 200
 
 # For output files etc.
 websitePath = '../apriltuesday.github.io/'
-prefix = 'newertest'
+prefix = 'test'
 
 
 def coverage(map, xs, weights):
@@ -42,7 +42,7 @@ def coverage(map, xs, weights):
     return total
 
 
-def coherence(chain, faces, times):
+def coherence(chain, faces):
     """
     Compute the coherence of the given chain.
     Coherence is based on what faces are included and chronology.
@@ -55,10 +55,6 @@ def coherence(chain, faces, times):
         pic2 = chain[i+1]
         #faces shared by both
         numShare = faces[pic1].dot(faces[pic2])
-        #if time moves backwards, penalize XXX hack alert
-#        if (times[pic1] != 0).any() and (times[pic2] != 0).any:
-#            if np.nonzero(times[pic1])[0][0] > np.nonzero(times[pic2])[0][0]:
-#                numShare /= 2.0
         if numShare < minShare:
             minShare = numShare
     return minShare
@@ -100,7 +96,7 @@ def getConnections(map, faces):
                     continue
                 for j in map[v]:
                     if j in map[u]:
-                        continue #XXX the hell is going on here?
+                        continue
                     if faces[i].dot(faces[j]) > 0:
                         connections.append((i,j))
     return connections
@@ -119,6 +115,7 @@ def greedy(map, path, candidates, xs, weights):
             maxCoverage = c
             maxP = p
 #    map.append(maxP)
+    candidates.remove(maxP) #XXX
     path.append(maxP)
 
 
@@ -149,7 +146,7 @@ def altClusterFaces(faces):
         group = tuple(sorted(np.nonzero(faces[img])[0]))
         if len(group) > 0 and len(group) < 20:
             c[group] += 1
-    sortedClusters = sorted(c, key=lambda x: 1/(c[x] * len(x))) # by count and by size xxx
+    sortedClusters = sorted(c, key=lambda x: 1/(c[x] * len(x))) # by count and by size
     return sortedClusters[:NUM_LINES]
 
 
@@ -157,7 +154,8 @@ def orderLines(paths, faceClusters):
     """
     Order lines and clusters according to shared images (in place).
     """
-    # This makes the visualization easier and is kind of a huge hack XXX
+    # This makes the visualization easier and is kind of a huge hack
+    # XXX maybe want to sort by shared faces?  time?
     i = 0
     while i < NUM_LINES:
         maxInt = 0
@@ -226,7 +224,8 @@ def binValues(years, longitudes, latitudes, valid):
     """
     times = bin(years, NUM_TIMES)
     times = times[:, ~np.all(times == 0, axis=0)]
-#    times[valid.mask] = np.zeros(times.shape[1]) #invalid photos cover no times TODO fix this?
+    #XXX fix this
+#    times[valid.mask] = np.zeros(times.shape[1]) #invalid photos cover no times 
     longs = bin(longitudes, NUM_LOCS)
     lats = bin(latitudes, NUM_LOCS)
     # just need place-bins, not individual long/lat
@@ -239,17 +238,12 @@ def binValues(years, longitudes, latitudes, valid):
     return times, places
 
 
-def fixInvalid(years):
+def fixInvalid(years, valid):
     """
     Fix invalid timestamps, by replacing with a random value generated
     from the distribution of valid times within years.
     """
-    # Invalid timestamps are (in our case) Feb 2014 (huge hack alert XXX)
-    timeObjs = [time.localtime(y) for y in years]
-    invalid = [x.tm_year == 2014 and x.tm_mon == 2 for x in timeObjs]
-    valid = np.ma.masked_where(invalid, years)
-
-    # TODO pick the appropriate distribution?
+    # XXX pick the appropriate distribution?
     mu = np.ma.mean(valid)
     sigma = np.ma.std(valid)
     a = np.ma.min(valid)
@@ -374,18 +368,18 @@ if __name__ == '__main__':
     faces = faces[:,1:]
     ppl = np.arange(m-1)
 
-    # Cluster the faces TODO XXX
+    # Cluster the faces XXX
     #faceClusters = clusterFaces(A[1:, 1:], faces)
     faceClusters = altClusterFaces(faces)
     
-    # Invalid timestamps are (in our case) Feb 2014 (huge hack alert XXX)
+    # Invalid timestamps are (in our case) Feb 2014 (hack)
     timeObjs = [time.localtime(y) for y in years]
     invalid = [x.tm_year == 2014 and x.tm_mon == 2 for x in timeObjs]
     valid = np.ma.masked_where(invalid, years)
     # Fix invalid timestamps for photos
     for cl in faceClusters:
         pool = list(set(np.nonzero(faces[:,cl])[0])) #photos containing these faces
-        years[pool] = fixInvalid(years[pool])
+        years[pool] = fixInvalid(years[pool], valid[pool])
 
     # Bin times and GPS coordinates
     times, places = binValues(years, longitudes, latitudes, valid)
@@ -397,17 +391,18 @@ if __name__ == '__main__':
     paths = []
     # For each face cluster, get high-coverage coherent path for its photos
     for cl in faceClusters:
-        #XXX
+#        pool = list(set(np.nonzero(faces[:,cl])[0])) #photos containing these faces
+        #XXX figure out weighting & coherence-like constraints
         other = np.empty(faces.shape)
         other[:, cl] = faces[:, cl]
         ind = list(set(ppl) - set(cl))
         other[:, ind] = -faces[:,ind]
         weights = getWeights(other, times, places)
 
-#        pool = list(set(np.nonzero(faces[:,cl])[0])) #photos containing these faces
         nonz = np.nonzero(faces[:,cl])[0]
-        sumz = dict(zip(nonz, np.sum(faces[nonz][:,cl], axis=1)))
-        pool = filter(lambda x: x in sumz.keys() and sumz[x]>len(cl)*TAU, photos) # choose a pool containing at least len(cl)*TAU coverage of faces within cl
+        sumz = dict(zip(nonz, np.apply_along_axis(np.count_nonzero, 1, faces[nonz][:,cl])))
+        # choose a pool containing at least len(cl)*TAU faces within cl
+        pool = filter(lambda x: x in sumz.keys() and sumz[x]>len(cl)*TAU, photos)
         path = []
 
         for i in range(NUM_PHOTOS):
@@ -415,15 +410,27 @@ if __name__ == '__main__':
                 break
             greedy(paths, path, pool, vects, weights)
             # throw out photos not coherent with path
-            newPool = []
-            for img in pool:
-                if img not in path and coherence(path + [img], faces, times) > len(cl)*TAU: #xxx
-                    newPool.append(img)
-            pool = newPool
-        paths.append(sorted(path, key=lambda x: years[x]))
+#            newPool = []
+#            for img in pool:
+#                if img not in path and coherence(path + [img], faces) > len(cl)*TAU: #xxx
+#                    newPool.append(img)
+#            pool = newPool
+        paths.append(path) #sorted(path, key=lambda x: years[x]))
+
+    # for any photo, if it's highly covered enough by another line,
+    # we want to include it in that line also XXX
+    newPaths = []
+    for i in range(NUM_LINES):
+        for j in range(NUM_LINES-1):
+            if i == j or set(faceClusters[j]) <= set(faceClusters[i]):
+                continue
+            if coherence(paths[i] + [j], faces) > len(faceClusters[i]) * TAU:
+                paths[i].append(j)
+        newPaths.append(sorted(paths[i], key=lambda x: years[x]))
+    paths = newPaths
 
     # Re-order lines (in place)
-    orderLines(paths, faceClusters)
+#    orderLines(paths, faceClusters)
 
     # Find connections (shared faces) between lines
 #    connections = getConnections(paths, faces)
@@ -441,25 +448,3 @@ if __name__ == '__main__':
 
     # Save map to json
     saveMap(websitePath + prefix + '-map.json', paths, [], images)
-
-#     # Graph that sucker
-#     plt.figure(0)
-#     G = nx.Graph(A)
-#     nodes = [A[i,i] for i in ppl]
-#     edges = []
-#     for (u,v) in G.edges():
-#         edges.append(A[u,v])
-#     layout = nx.spring_layout(G)
-#     nx.draw_networkx_nodes(G, pos=layout, node_size=[x*2 for x in nodes])
-#     nx.draw_networkx_edges(G, pos=layout, alpha=0.5, node_size=0, width=edges, edge_color='b')
-
-#     # Display paths
-#     for i in range(NUM_LINES):
-#         plt.figure(i+1)
-#         path = paths[i]
-#         for j, img in zip(range(len(path)), path):
-#             plt.subplot(1, len(path), j+1)
-#             plt.title('image ' + str(img))
-#             plt.imshow(images[img])
-
-#     plt.show()
