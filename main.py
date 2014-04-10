@@ -19,12 +19,12 @@ import Queue
 
 # Constraints of the map
 NUM_LINES = 10
-NUM_PHOTOS = 8
-TAU = 0.5 # This is the minimum coherence constraint
+NUM_PHOTOS = 20 #always equal to num-times?
+TAU = 0.7 # This is the minimum coherence constraint
 
 # Numbers of bins
 NUM_CLUSTERS = 200
-NUM_TIMES = 200
+NUM_TIMES = 20
 NUM_LOCS = 200
 
 # For output files etc.
@@ -102,21 +102,24 @@ def getConnections(map, faces):
     return connections
 
 
-def greedy(map, path, candidates, xs, weights):
+def greedy(map, path, candidates, xs, weights, times):
     """
     Greedily choose the max-coverage candidate and add to map.
     """
-    maxCoverage = 0.0
-    maxP = 0
+    maxCoverage = -float('inf') #note that if weights are negative, we can have negative coverage!
+    maxP = float('inf')
     total = list(set(cbook.flatten(map))) + path
     for p in candidates:
+        if (times[path].dot(times[p]) > 0).any(): #same time bin as another photo in the path
+            continue
         c = coverage(total + [p], xs, weights)
         if c > maxCoverage:
             maxCoverage = c
             maxP = p
 #    map.append(maxP)
-    candidates.remove(maxP) #XXX
-    path.append(maxP)
+    if np.isfinite(maxP):
+        candidates.remove(maxP) #XXX
+        path.append(maxP)
 
 
 def clusterFaces(A, faces):
@@ -161,7 +164,7 @@ def orderLines(paths, faceClusters):
         maxInt = 0
         maxJ = 0
         for j in range(len(paths[i+1:])):
-            intersect = len(set(paths[i]) & set(path))
+            intersect = len(set(paths[i]) & set(paths[j]))
             if intersect > maxInt: #largest intersection
                 maxJ = j
                 maxInt = intersect
@@ -281,13 +284,14 @@ def saveMap(filename, paths, connections, images):
     pathInd = {} #easier form to work with here
     for i in range(len(paths)):
         for j in paths[i]:
-            pathInd[j] = i+1
+            if j not in pathInd.keys(): #HACK XXX
+                pathInd[j] = i+1
     strs = []
 
     # Write nodes
     f.write('{ "nodes": [\n')
     for node in nodes:
-        imgPath = 'images/' + str(node) + '.png'
+        imgPath = 'images/' + str(node) + '.png' #once we save everything we never need to do this again
         misc.imsave(websitePath + imgPath, images[node])
         strs.append('{"id": ' + str(node) + ', "line": ' + str(pathInd[node]) + '}')
     f.write(',\n'.join(strs) + '],\n"links": [\n')
@@ -347,7 +351,7 @@ if __name__ == '__main__':
     ########### LOADING THE DATA ###############
     mat = io.loadmat('../data/April_full_gps.mat')
     images = mat['images'][:,0]
-    faces = mat['faces'] + mat['facesBinary'] 
+    faces = mat['facesBinary'] #mat['faces]
     years = mat['timestamps'].flatten()
     longitudes = mat['longitudes'].flatten()
     latitudes = mat['latitudes'].flatten()
@@ -371,6 +375,11 @@ if __name__ == '__main__':
     # Cluster the faces XXX
     #faceClusters = clusterFaces(A[1:, 1:], faces)
     faceClusters = altClusterFaces(faces)
+    for cl in faceClusters:
+        print cl
+        for i in cl:
+            print names[i+1]
+        print '---------'
     
     # Invalid timestamps are (in our case) Feb 2014 (hack)
     timeObjs = [time.localtime(y) for y in years]
@@ -391,6 +400,7 @@ if __name__ == '__main__':
     paths = []
     # For each face cluster, get high-coverage coherent path for its photos
     for cl in faceClusters:
+        print 'cluster', cl
 #        pool = list(set(np.nonzero(faces[:,cl])[0])) #photos containing these faces
         #XXX figure out weighting & coherence-like constraints
         other = np.empty(faces.shape)
@@ -403,34 +413,33 @@ if __name__ == '__main__':
         sumz = dict(zip(nonz, np.apply_along_axis(np.count_nonzero, 1, faces[nonz][:,cl])))
         # choose a pool containing at least len(cl)*TAU faces within cl
         pool = filter(lambda x: x in sumz.keys() and sumz[x]>len(cl)*TAU, photos)
+
+        print 'pool', pool
+#        if len(pool) <= NUM_PHOTOS: #whole pool is the path
+#            paths.append(pool)
+#            print 'path=pool'
+#            continue
         path = []
-
-        for i in range(NUM_PHOTOS):
-            if len(pool) == 0:
-                break
-            greedy(paths, path, pool, vects, weights)
-            # throw out photos not coherent with path
-#            newPool = []
-#            for img in pool:
-#                if img not in path and coherence(path + [img], faces) > len(cl)*TAU: #xxx
-#                    newPool.append(img)
-#            pool = newPool
+        for i in range(NUM_PHOTOS): #int(max(len(pool) / 4, NUM_PHOTOS))): #xxx percentage of total photos for the pool
+            greedy(paths, path, pool, vects, weights, times)
         paths.append(path) #sorted(path, key=lambda x: years[x]))
+        print 'path', path
 
-    # for any photo, if it's highly covered enough by another line,
-    # we want to include it in that line also XXX
-    newPaths = []
+    # Fix lines to show face intersections
     for i in range(NUM_LINES):
-        for j in range(NUM_LINES-1):
-            if i == j or set(faceClusters[j]) <= set(faceClusters[i]):
+        for j in range(NUM_LINES):
+            if i == j:
                 continue
-            if coherence(paths[i] + [j], faces) > len(faceClusters[i]) * TAU:
-                paths[i].append(j)
-        newPaths.append(sorted(paths[i], key=lambda x: years[x]))
-    paths = newPaths
+            #if set(faceClusters[i]) <= set(faceClusters[j]): #i's cluster is a subset of j's cluster
+            # maybe don't need? XXX
+            for img in paths[j]:
+                if sum(faces[img, faceClusters[i]]) == len(faceClusters[i]): #img includes all the faces in i
+                    # (faces[img, faceClusters[i]] != 0).any(): #img includes faces from cluster i
+                    paths[i].append(img)
 
-    # Re-order lines (in place)
-#    orderLines(paths, faceClusters)
+    # Sort and re-order lines (in place)
+    paths = [sorted(x, key=lambda x: years[x]) for x in paths]
+    orderLines(paths, faceClusters)
 
     # Find connections (shared faces) between lines
 #    connections = getConnections(paths, faces)
@@ -448,3 +457,4 @@ if __name__ == '__main__':
 
     # Save map to json
     saveMap(websitePath + prefix + '-map.json', paths, [], images)
+# XXX why is id=0 appearing?
