@@ -1,5 +1,6 @@
 # April Shen
 # Metro maps X Photobios - Main file
+# This is the version as of 4/10/14, with new fast coherence but no zooming
 #!/usr/bin/python
 
 from __future__ import division
