@@ -13,9 +13,10 @@ import matplotlib.cbook as cbook
 from random import sample, choice, shuffle, random
 from collections import Counter
 import Queue
+import pico
 
 # Constraints of the map
-NUM_LINES = 10
+NUM_LINES = 5
 NUM_PHOTOS = 20 #always equal to num-times?
 TAU = 0.7 # This is the minimum coherence constraint
 
@@ -98,25 +99,9 @@ def greedy(map, path, candidates, xs, weights, times):
         path.append(maxP)
 
 
-def clusterFaces(A, faces):
+def clusterFaces(faces):
     """
-    Cluster faces using co-clustering of co-occurrence matrix A.
-    Return the clusters we use for lines, which maximally cover the photos.
-    """
-    c = cluster.bicluster.SpectralCoclustering(n_clusters=NUM_CLUSTERS, svd_method='arpack')
-    c.fit(A)
-    clusters = [] #list of lists, each of which lists face indices in that cluster
-    for i in range(NUM_CLUSTERS):
-        clusters.append(c.get_indices(i)[0])        
-    whichClusters = []
-    for i in range(NUM_LINES):
-        greedy(whichClusters, clusters, faces.T, np.ones(n))
-    return whichClusters
-
-
-def altClusterFaces(faces):
-    """
-    Cluster faces using group counts. Return clusters with max counts.
+    Cluster faces using group counts.
     """
     c = Counter()
     for img in np.arange(faces.shape[0]):
@@ -124,7 +109,7 @@ def altClusterFaces(faces):
         if len(group) > 0 and len(group) < 20:
             c[group] += 1
     sortedClusters = sorted(c, key=lambda x: 1/(c[x] * len(x))) # by count and by size
-    return sortedClusters[:NUM_LINES]
+    return sortedClusters
 
 
 def orderLines(paths, faceClusters):
@@ -134,10 +119,10 @@ def orderLines(paths, faceClusters):
     # This makes the visualization easier and is kind of a huge hack
     # XXX maybe want to sort by shared faces?  time?
     i = 0
-    while i < NUM_LINES:
+    while i < len(paths):
         maxInt = 0
         maxJ = 0
-        for j in range(len(paths[i+1:])):
+        for j in range(i+1, len(paths)):
             intersect = len(set(paths[i]) & set(paths[j]))
             if intersect > maxInt: #largest intersection
                 maxJ = j
@@ -182,7 +167,10 @@ def bin(values, k):
     sortedVals = sorted(set(values))
     # number of values per bin
     num = int(np.ceil(len(sortedVals) / k))
-    bins = [sortedVals[x:x+num] for x in range(0, len(sortedVals), num)]
+    if num == 0:
+        bins = [[x] for x in sortedVals]
+    else:
+        bins = [sortedVals[x:x+num] for x in range(0, len(sortedVals), num)]
 
     # Compute binary vector for each item based on its value
     vectors = np.zeros((n, len(bins)))
@@ -205,7 +193,7 @@ def binValues(years, longitudes, latitudes):
     longs = bin(longitudes, NUM_LOCS)
     lats = bin(latitudes, NUM_LOCS)
     # just need place-bins, not individual long/lat
-    places = np.zeros((n, NUM_LOCS**2))
+    places = np.zeros((years.shape[0], NUM_LOCS**2))
     nonLongs = np.nonzero(longs)
     nonLats = np.nonzero(lats)
     for img, lo, la in zip(nonLongs[0], nonLongs[1], nonLats[1]):
@@ -232,32 +220,56 @@ def fixInvalid(years, valid):
     #np.round(np.random.uniform(np.ma.min(valid), np.ma.max(valid), valid[valid.mask].shape))
     years[valid.mask] = np.round(np.random.beta(alpha, beta, valid[valid.mask].shape) * (b-a) + a)
     return years
+
+
+def correctTimestamps(years, faces, clusters):
+    # Correct invalid timestamps
+    # In our case these are Feb 2014 (hack)
+    timeObjs = [time.localtime(y) for y in years]
+    invalid = [x.tm_year == 2014 and x.tm_mon == 2 for x in timeObjs]
+    valid = np.ma.masked_where(invalid, years)
+    clusters.reverse()
+    for cl in clusters:
+        pool = list(set(np.nonzero(faces[:,cl])[0])) #photos containing these faces
+        if len(pool) > 0:
+            years[pool] = fixInvalid(years[pool], valid[pool])
+    clusters.reverse()
     
 
 def getWeights(faces, times, places):
     """
     Weight importance of faces, times, places by frequency (normalized).
     """
-    #faceWeights = np.apply_along_axis(np.count_nonzero, 0, faces)
-    faceWeights = np.apply_along_axis(np.sum, 0, faces)
-    faceWeights = faceWeights / np.linalg.norm(faceWeights)
-    timeWeights = np.apply_along_axis(np.sum, 0, times)
-    timeWeights = timeWeights / np.linalg.norm(timeWeights)
-    placeWeights = np.apply_along_axis(np.sum, 0, places)
-    placeWeights = placeWeights / np.linalg.norm(placeWeights)
+    # Need to run checks in case the feature vectors are length 0
+    if len(faces.shape) < 2 or faces.shape[1] == 0:
+        faceWeights = np.zeros(0)
+    else:
+        faceWeights = np.apply_along_axis(np.sum, 0, faces)
+        faceWeights = faceWeights / np.linalg.norm(faceWeights)
+    if len(times.shape) < 2 or times.shape[1] == 0:
+        timeWeights = np.zeros(0)
+    else:
+        timeWeights = np.apply_along_axis(np.sum, 0, times)
+        timeWeights = timeWeights / np.linalg.norm(timeWeights)
+    if len(places.shape) < 2 or places.shape[1] == 0:
+        placeWeights = np.zeros(0)
+    else:
+        placeWeights = np.apply_along_axis(np.sum, 0, places)
+        placeWeights = placeWeights / np.linalg.norm(placeWeights)
     return np.hstack([faceWeights, timeWeights, placeWeights])
 
 
-def saveMap(filename, paths, connections, images):
+def saveMap(filename, paths, images, faces, years, longs, lats):
     """
     Save map in a JSON file. Also save the corresponding photos.
+    Store feature data as attributes of each node.
     """
     f = open(filename, 'w+')
     nodes = list(set(cbook.flatten(paths)))
     pathInd = {} #easier form to work with here
     for i in range(len(paths)):
         for j in paths[i]:
-            if j not in pathInd.keys(): # XXX overlapping clusters?
+            if j not in pathInd.keys(): # XXX overlapping?
                 pathInd[j] = i+1
     strs = []
 
@@ -266,7 +278,11 @@ def saveMap(filename, paths, connections, images):
     for node in nodes:
         imgPath = 'images/' + str(node) + '.png'
         misc.imsave(websitePath + imgPath, images[node])
-        strs.append('{"id": ' + str(node) + ', "line": ' + str(pathInd[node]) + '}')
+        s = '{"id": ' + str(node) + ', "line": ' + str(pathInd[node])
+        s += ', "faces": [' + ','.join([str(x) for x in np.nonzero(faces[node])[0]]) + ']'
+        s += ', "time": ' + str(years[node]) + ', "long": ' + str(longs[node]) + ', "lat": ' + str(lats[node])
+        s += '}'
+        strs.append(s)
     f.write(',\n'.join(strs) + '],\n"links": [\n')
     strs = []
 
@@ -315,63 +331,29 @@ def saveFeatures(filename, faces, dates, longs, lats):
     f.close()
 
 
-if __name__ == '__main__':
-
-    ########### LOADING THE DATA ###############
-    mat = io.loadmat('../data/April_full_gps.mat')
-    images = mat['images'][:,0]
-    faces = mat['facesBinary'] #mat['faces]
-    years = mat['timestamps'].flatten()
-    longitudes = mat['longitudes'].flatten()
-    latitudes = mat['latitudes'].flatten()
-    names = getNames()
-
-    ########### PROCESSING THE DATA ###############
-
-    # Omit people who don't appear
-    names = names[~np.all(faces == 0, axis=0)]
-    faces = faces[:, ~np.all(faces == 0, axis=0)]
+def makeMap(prefix, faces, years, longitudes, latitudes):
+    """
+    Do everything. (enables zooming)
+    Prefix is a file prefix to use for the map
+    faces, years, etc. are the feature matrices
+    """
     n, m = faces.shape
     photos = np.arange(n)
     ppl = np.arange(m)
 
-    # Form adjacency matrix of the social graph (including ME)
-    A = np.array([np.sum(np.product(faces[:,[i, j]], axis=1)) for i in ppl for j in ppl]).reshape((m,m))
-    # now omit ME
-    faces = faces[:,1:]
-    ppl = np.arange(m-1)
-
-    # Cluster the faces XXX
-    #faceClusters = clusterFaces(A[1:, 1:], faces)
-    faceClusters = altClusterFaces(faces)
-    for cl in faceClusters:
-        print cl
-        for i in cl:
-            print names[i+1]
-        print '---------'
-    
-    # Invalid timestamps are (in our case) Feb 2014 (hack)
-    timeObjs = [time.localtime(y) for y in years]
-    invalid = [x.tm_year == 2014 and x.tm_mon == 2 for x in timeObjs]
-    valid = np.ma.masked_where(invalid, years)
-    # Fix invalid timestamps for photos
-    for cl in faceClusters:
-        pool = list(set(np.nonzero(faces[:,cl])[0])) #photos containing these faces
-        years[pool] = fixInvalid(years[pool], valid[pool])
-
     # Bin times and GPS coordinates
     times, places = binValues(years, longitudes, latitudes)
+
+    # Choose face clusters
+    #TODO we don't want to redo this work every time
+    faceClusters = clusterFaces(faces)[:NUM_LINES]
 
     ########### CREATING THE MAP ###############
 
     vects = np.hstack([faces, times, places])
-#    weights = getWeights(faces, times, places)
     paths = []
     # For each face cluster, get high-coverage coherent path for its photos
     for cl in faceClusters:
-#        pool = list(set(np.nonzero(faces[:,cl])[0])) #photos containing these faces
-        #XXX figure out weighting & coherence-like constraints
-
         # choose weights for this cluster's line, de-emphasizing faces outside the cluster
         other = np.empty(faces.shape)
         other[:, cl] = faces[:, cl]
@@ -391,8 +373,8 @@ if __name__ == '__main__':
         paths.append(path)
 
     # Fix lines to show overlaps in faces
-    for i in range(NUM_LINES):
-        for j in range(NUM_LINES):
+    for i in range(len(paths)):
+        for j in range(len(paths)):
             if i == j:
                 continue
             for img in paths[j]:
@@ -402,17 +384,105 @@ if __name__ == '__main__':
     # Sort and re-order lines to improve layout
     paths = [sorted(x, key=lambda x: years[x]) for x in paths]
     orderLines(paths, faceClusters)
+    return paths
+
+
+def mapFromParams(prefix, facelist, timeframe, longframe, latframe):
+    """
+    Make a metro map from the given parameters.
+
+    prefix: output file prefix
+    facelist: list of faces (indices from contacts.xml) to include
+    timeframe: tuple of times (start, end)
+    longframe: tuple of longitudes (start, end)
+    latframe: tuple of latitudes (start, end)
+    """
+    ########### LOADING THE DATA ###############
+    mat = io.loadmat('../data/April_full_gps.mat')
+    images = mat['images'][:,0]
+    faces = mat['facesBinary'] #mat['faces]
+ #   years = mat['timestamps'].flatten()
+    years = io.loadmat('../data/corrected_times.mat')['years'].flatten()
+    longitudes = mat['longitudes'].flatten()
+    latitudes = mat['latitudes'].flatten()
+    names = getNames()
+
+    ########### PRE-PROCESSING ###############
+
+    # Figure out pool of photos, using params
+    pool = np.arange(faces.shape[0]) # list of indices of photos we're using
+    mask = np.array([True for i in pool]) # mask for filtering dataset
+
+    # Only include photos that include at least one of the faces in facelist
+    if len(facelist) > 0:
+        facelist = [x+1 for x in facelist]
+        mask &= faces[:, facelist].any(axis=1)
+    # Only include photos that are within the given timeframe, longframe, latframe
+    if len(timeframe) > 0:
+        mask &= np.ma.masked_where(np.logical_and(years > timeframe[0], years < timeframe[1]), years).mask
+    if len(longframe) > 0:
+        mask &= np.ma.masked_where(np.logical_and(longitudes > longframe[0], longitudes < longframe[1]), longitudes).mask
+    if len(latframe) > 0:
+        mask &= np.ma.masked_where(np.logical_and(latitudes > latframe[0], latitudes < latframe[1]), latitudes).mask
+
+    pool = pool[mask]
+    print 'facelist'
+    for i in facelist:
+        print i, names[i]
+    print 'faces in 0'
+    for i in np.nonzero(faces[pool[0]])[0]:
+        print i, names[i]
+    images = images[pool]
+    faces = faces[pool]
+    years = years[pool]
+    longitudes = longitudes[pool]
+    latitudes = latitudes[pool]
+
+    # Omit people who don't appear
+#    names = names[~np.all(faces == 0, axis=0)]
+#    faces = faces[:, ~np.all(faces == 0, axis=0)]
+    n, m = faces.shape
+    ppl = np.arange(m)
+
+    # Form adjacency matrix of the social graph (including ME)
+    A = np.array([np.sum(np.product(faces[:,[i, j]], axis=1)) for i in ppl for j in ppl]).reshape((m,m))
+    # now omit ME
+    faces = faces[:,1:] #XXX not necessarily
+
+    # TODO: probably push this inside makeMap?
+    # Form hashtable of (group of faces) -> (photo count)
+    faceClusters = clusterFaces(faces)
+    # Use these to correct invalid times
+#    correctTimestamps(years, faces, faceClusters)
+
+    ########### MAKING THE MAP ###############
+    paths = makeMap(prefix, faces, years, longitudes, latitudes)
+
+    ############ POST-PROCESSING ##############
+
+    # Translate indices
+#    paths = [[pool[i] for i in p] for p in paths]
+    # XXX this is sloppy, how do we fix this?
 
     ########### SAVING THE DATA ###############
 
-    # Save adjacency matrix to json
-    saveGraph(websitePath + prefix + '-graph.json', A, faceClusters, names)
-    
-    # Save feature vectors to json
+    # Save map to json
     np.place(years, np.isinf(years), np.min(years))
     np.place(longitudes, np.isinf(longitudes), 0)
     np.place(latitudes, np.isinf(latitudes), 0)
-    saveFeatures(websitePath + prefix + '-feats.json', faces, years, longitudes, latitudes)
+    saveMap(websitePath + prefix + '-map.json', paths, images, faces, years, longitudes, latitudes)
+    # Save adjacency matrix to json
+    saveGraph(websitePath + prefix + '-graph.json', A, faceClusters, names)
 
-    # Save map to json
-    saveMap(websitePath + prefix + '-map.json', paths, [], images)
+    # Save feature vectors to json
+#    saveFeatures(websitePath + prefix + '-feats.json', faces, years, longitudes, latitudes)
+
+    # Notes/TODOs
+    # -this is really messy, we should fix it
+    # -want social graph to support overlapping clusters
+    # -social graph over time?
+    # -visual smoothness/coherence using facial landmarks
+
+
+if __name__ == '__main__':
+    mapFromParams(prefix, [], [], [], [])
