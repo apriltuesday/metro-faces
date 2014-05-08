@@ -17,8 +17,8 @@ import pico
 
 # Constraints of the map
 NUM_LINES = 10
-NUM_PHOTOS = 20 #always equal to num-times?
-TAU = 0.7 # This is the minimum coherence constraint
+NUM_PHOTOS = 50 #always equal to num-times?
+TAU = 0.8 # This is the minimum coherence constraint
 
 # Numbers of bins
 NUM_CLUSTERS = 200
@@ -53,8 +53,8 @@ def coherence(path, photos, landmarks):
             # in each photo and find the difference
             # For now, just the l2-norm btw the two landmarks vectors
             #dist = np.linalg.norm(landmarks[p].flatten() - landmarks[p2].flatten())
-            dist = np.linalg.norm(landmarks[photos.index(p)] - landmarks[photos.index(p2)])
-            if dist < TAU / 2:
+            dist = np.linalg.norm(landmarks[p] - landmarks[p2])
+            if dist > TAU:
                 add = False
         if add:
             pool.append(p)
@@ -372,13 +372,15 @@ def makeMap(prefix, faces, years, longitudes, latitudes, landmarks):
         else:
             temps = np.array([temp[pool,cl[i],:] - temp[pool,cl[j],:] for i in range(len(cl)) for j in range(i+1, len(cl))])
             temps = np.swapaxes(temps, 0, 1)
+        pairDists = np.zeros((n,) + temps.shape[1:])
+        pairDists[pool] = temps
 
         # XXX HACK TODO
         # choose a starter photo that has most sufficiently coherent photos
         maxPool = []
         maxInd = 0
         for i in pool:
-            cands = coherence([i], pool, temps) #landmarks) # temps is list of pairwise diffs
+            cands = coherence([i], pool, pairDists) #landmarks)
             if len(cands) > len(maxPool):
                 maxInd = i
                 maxPool = cands
@@ -388,16 +390,17 @@ def makeMap(prefix, faces, years, longitudes, latitudes, landmarks):
         pool = maxPool
         for i in range(NUM_PHOTOS):
             greedy(paths, path, pool, vects, weights, times)
+            pool = coherence(path, pool, pairDists)
         paths.append(path)
 
     # Fix lines to show overlaps in faces xxx
-#     for i in range(len(paths)):
-#         for j in range(len(paths)):
-#             if i == j:
-#                 continue
-#             for img in paths[j]:
-#                 if sum(faces[img, faceClusters[i]]) == len(faceClusters[i]): #img includes all the faces in i
-#                     paths[i].append(img)
+    for i in range(len(paths)):
+        for j in range(len(paths)):
+            if i == j:
+                continue
+            for img in paths[j]:
+                if sum(faces[img, faceClusters[i]]) == len(faceClusters[i]): #img includes all the faces in i
+                    paths[i].append(img)
 
     # Sort and re-order lines to improve layout
     paths = [sorted(x, key=lambda x: years[x]) for x in paths]
