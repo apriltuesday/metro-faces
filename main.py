@@ -16,7 +16,7 @@ import Queue
 import pico
 
 # Constraints of the map
-NUM_LINES = 5
+NUM_LINES = 10
 NUM_PHOTOS = 20 #always equal to num-times?
 TAU = 0.7 # This is the minimum coherence constraint
 
@@ -27,7 +27,7 @@ NUM_LOCS = 200
 
 # For output files etc.
 websitePath = '../apriltuesday.github.io/'
-prefix = 'new'
+prefix = 'newTest'
 
 
 def coverage(map, xs, weights):
@@ -40,22 +40,25 @@ def coverage(map, xs, weights):
     return total
 
 
-def coherence(chain, faces):
+def coherence(path, photos, landmarks):
     """
-    Compute the coherence of the given chain.
-    Coherence is based on what faces are included and chronology.
+    Return pool of photos sufficiently coherent with current path,
+    based on landmark info.
     """
-    # Coherence is min. number of faces shared between two
-    # images, weighted by frequency. also penalized if time moves backwards.
-    minShare = float('inf')
-    for i in np.arange(len(chain)-1):
-        pic1 = chain[i]
-        pic2 = chain[i+1]
-        #faces shared by both
-        numShare = faces[pic1].dot(faces[pic2])
-        if numShare < minShare:
-            minShare = numShare
-    return minShare
+    pool = []
+    for p in photos:
+        add = True
+        for p2 in path:
+            # TODO: if two people in two photos, compute normalized dist between them
+            # in each photo and find the difference
+            # For now, just the l2-norm btw the two landmarks vectors
+            #dist = np.linalg.norm(landmarks[p].flatten() - landmarks[p2].flatten())
+            dist = np.linalg.norm(landmarks[photos.index(p)] - landmarks[photos.index(p2)])
+            if dist < TAU / 2:
+                add = False
+        if add:
+            pool.append(p)
+    return pool
 
 
 def connectivity(map, faces):
@@ -329,7 +332,7 @@ def saveFeatures(filename, faces, dates, longs, lats):
     f.close()
 
 
-def makeMap(prefix, faces, years, longitudes, latitudes):
+def makeMap(prefix, faces, years, longitudes, latitudes, landmarks):
     """
     Do everything. (enables zooming)
     Prefix is a file prefix to use for the map
@@ -346,8 +349,6 @@ def makeMap(prefix, faces, years, longitudes, latitudes):
     #TODO we don't want to redo this work every time
     faceClusters = clusterFaces(faces)[:NUM_LINES]
 
-    ########### CREATING THE MAP ###############
-
     vects = np.hstack([faces, times, places])
     paths = []
     # For each face cluster, get high-coverage coherent path for its photos
@@ -359,25 +360,44 @@ def makeMap(prefix, faces, years, longitudes, latitudes):
         other[:, ind] = -faces[:,ind]
         weights = getWeights(other, times, places)
 
-        # choose a pool of photos containing at least len(cl)*TAU faces within cl
+        # choose a pool of photos with sufficient number of people from cluster present
         nonz = np.nonzero(faces[:,cl])[0]
         sumz = dict(zip(nonz, np.apply_along_axis(np.count_nonzero, 1, faces[nonz][:,cl])))
         pool = filter(lambda x: x in sumz.keys() and sumz[x]>len(cl)*TAU, photos)
 
+        # get pairwise distance vector for ppl in cluster
+        temp = np.mean(landmarks, axis=2) #avg along landmarks : 988 x 223 x 2
+        if len(cl) == 1:
+            temps = temp[pool, cl[0], :]
+        else:
+            temps = np.array([temp[pool,cl[i],:] - temp[pool,cl[j],:] for i in range(len(cl)) for j in range(i+1, len(cl))])
+            temps = np.swapaxes(temps, 0, 1)
+
+        # XXX HACK TODO
+        # choose a starter photo that has most sufficiently coherent photos
+        maxPool = []
+        maxInd = 0
+        for i in pool:
+            cands = coherence([i], pool, temps) #landmarks) # temps is list of pairwise diffs
+            if len(cands) > len(maxPool):
+                maxInd = i
+                maxPool = cands
+
         # choose a path greedily from among the pool
         path = []
+        pool = maxPool
         for i in range(NUM_PHOTOS):
             greedy(paths, path, pool, vects, weights, times)
         paths.append(path)
 
-    # Fix lines to show overlaps in faces
-    for i in range(len(paths)):
-        for j in range(len(paths)):
-            if i == j:
-                continue
-            for img in paths[j]:
-                if sum(faces[img, faceClusters[i]]) == len(faceClusters[i]): #img includes all the faces in i
-                    paths[i].append(img)
+    # Fix lines to show overlaps in faces xxx
+#     for i in range(len(paths)):
+#         for j in range(len(paths)):
+#             if i == j:
+#                 continue
+#             for img in paths[j]:
+#                 if sum(faces[img, faceClusters[i]]) == len(faceClusters[i]): #img includes all the faces in i
+#                     paths[i].append(img)
 
     # Sort and re-order lines to improve layout
     paths = [sorted(x, key=lambda x: years[x]) for x in paths]
@@ -403,6 +423,8 @@ def mapFromParams(prefix, facelist, timeframe, longframe, latframe):
     longitudes = mat['longitudes'].flatten()
     latitudes = mat['latitudes'].flatten()
     names = getNames()
+    landmarks = io.loadmat('../data/landmarks.mat')['landmarks'] # 988 x 223 x 49 x 2
+    landmarks = np.vstack([landmarks, np.zeros((1, 223, 49, 2))]) # XXX wtf is wrong with this
 
     ########### PRE-PROCESSING ###############
 
@@ -423,17 +445,12 @@ def mapFromParams(prefix, facelist, timeframe, longframe, latframe):
         mask &= np.ma.masked_where(np.logical_and(latitudes > latframe[0], latitudes < latframe[1]), latitudes).mask
 
     pool = pool[mask]
-    print 'facelist'
-    for i in facelist:
-        print i, names[i]
-    print 'faces in 0'
-    for i in np.nonzero(faces[pool[0]])[0]:
-        print i, names[i]
     images = images[pool]
     faces = faces[pool]
     years = years[pool]
     longitudes = longitudes[pool]
     latitudes = latitudes[pool]
+    landmarks = landmarks[pool]
 
     # Omit people who don't appear
 #    names = names[~np.all(faces == 0, axis=0)]
@@ -445,19 +462,19 @@ def mapFromParams(prefix, facelist, timeframe, longframe, latframe):
     A = np.array([np.sum(np.product(faces[:,[i, j]], axis=1)) for i in ppl for j in ppl]).reshape((m,m))
     # now omit ME
     faces = faces[:,1:]
+    landmarks = landmarks[:, 1:] #gahhhh
 
     # TODO: probably push this inside makeMap?
-    # Form hashtable of (group of faces) -> (photo count)
+    # Form hashtable of (group of faces) -> (photo count), and correct timestamps
     faceClusters = clusterFaces(faces)
-    # Use these to correct invalid times
     correctTimestamps(years, faces, faceClusters)
 
     ########### MAKING THE MAP ###############
-    paths = makeMap(prefix, faces, years, longitudes, latitudes)
+    paths = makeMap(prefix, faces, years, longitudes, latitudes, landmarks)
 
     ############ POST-PROCESSING ##############
 
-    # Translate indices
+    # Translate indices. NB only really necessary for not duplicating photos under different ids when we display
 #    paths = [[pool[i] for i in p] for p in paths]
     # XXX this is sloppy, how do we fix this?
 
@@ -478,6 +495,7 @@ def mapFromParams(prefix, facelist, timeframe, longframe, latframe):
 
     # NEXT UP:
     # -visual smoothness/coherence using facial landmarks (landmarks.mat)
+    # note my current way of doing things doesn't admit a nice way of measuring/comparing global coherence of a path
 
 
 if __name__ == '__main__':
