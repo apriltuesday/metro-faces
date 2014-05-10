@@ -17,7 +17,7 @@ import pico
 
 # Constraints of the map
 NUM_LINES = 10
-TAU = 0.8 # This is the minimum coherence constraint
+TAU = -2 # This is the minimum coherence constraint
 
 # Numbers of bins
 NUM_CLUSTERS = 200
@@ -41,27 +41,21 @@ def coverage(map, xs, weights):
     return total
 
 
-def coherence(path, photos, xs, times):
+def coherence(path, xs, times):
     """
-    Return pool of photos sufficiently coherent with current path,
-    based on features xs.
+    Return coherence of path, based on features xs.
     times forces unique photo per time bin per path (and eventually, ordering)
     """
-    # XXX WAIT THIS IS STUPID this should be a function eval not this crap
-    pool = []
-    for p1 in photos:
-        add = True
-        if (times[path].dot(times[p1]) > 0).any(): #same time bin as another photo in the path
-            continue
+    maxDist = 0.0 # for now, min coherence == max feature distance
+    for p1 in path:
         for p2 in path:
+            if p1 != p2 and times[p2].dot(times[p1]) > 0: # same time bin is really bad
+                return -float('inf')
             # TODO: what exactly do we want here? norm? dot prod?
             dist = np.linalg.norm(xs[p1] - xs[p2])
-            if dist > 2*TAU:
-                add = False
-                break
-        if add:
-            pool.append(p1)
-    return pool
+            if dist > maxDist:
+                maxDist = dist
+    return -maxDist
 
 
 def greedy(map, path, candidates, xs, weights):
@@ -317,23 +311,16 @@ def getWeights(faces, times, places):
     return np.hstack([faceWeights, timeWeights, placeWeights])
 
 
-def getPool(photos, cl, faces, times, pairDists):
+def getPool(path, photos, times, xs):
     """
-    Return pool of photos containing faces in cl to initiate path construction.
-    Uses times and pairDists for coherence. Bit of a hack.
+    Return pool of photos that are sufficiently coherent with current path.
     """
-    # choose a pool of photos with sufficient number of people from cluster present
-    nonz = np.nonzero(faces[:,cl])[0]
-    sumz = dict(zip(nonz, np.apply_along_axis(np.count_nonzero, 1, faces[nonz][:,cl])))
-    pool = filter(lambda x: x in sumz.keys() and sumz[x]>len(cl)*TAU, photos)
-    
-    # choose a starter photo that has most sufficiently coherent photos
-    maxPool = []
-    for i in pool:
-        candidates = coherence([i], pool, pairDists, times)
-        if len(candidates) > len(maxPool):
-            maxPool = candidates
-    return maxPool
+    pool = []
+    for i in photos:
+        coh = coherence(path + [i], xs, times)
+        if coh > TAU:
+            pool.append(i)
+    return pool
 
 
 def getLandmarkDistances(ppl, landmarks):
@@ -396,14 +383,24 @@ def makeMap(prefix, faceClusters, faces, years, longitudes, latitudes, landmarks
         indices = list(set(ppl) - set(cl))
         newWeights[indices] *= -1
         
-        # Get pool of candidate photos
-        pool = getPool(photos, cl, faces, times, pairDists)
+        # Get pool of photos with sufficient number of ppl from cluster
+        nonz = np.nonzero(faces[:,cl])[0]
+        sumz = dict(zip(nonz, np.apply_along_axis(np.count_nonzero, 1, faces[nonz][:,cl])))
+        pool = filter(lambda x: x in sumz.keys() and sumz[x]>=len(cl), photos)
+
+        # Find the pool that will maximize length of path (hack)
+        maxPool = []
+        for i in pool:
+            newPool = getPool([i], pool, times, pairDists)
+            if len(newPool) > len(maxPool):
+                maxPool = newPool
+        pool = maxPool
 
         # Build a path via greedy choices from pool, using coherence to refine pool
         path = []
         for i in range(NUM_TIMES):
             greedy(paths, path, pool, xs, newWeights)
-            pool = coherence(path, pool, pairDists, times)
+            pool = getPool(path, pool, times, pairDists)
         paths.append(path)
 
     # Post-processing to tweak lines (mostly aesthetically)
