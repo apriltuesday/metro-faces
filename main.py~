@@ -17,7 +17,7 @@ import pico
 
 # Constraints of the map
 NUM_LINES = 10
-TAU = 0.8 # This is the minimum coherence constraint
+TAU = -2 # This is the minimum coherence constraint
 
 # Numbers of bins
 NUM_CLUSTERS = 200
@@ -41,27 +41,21 @@ def coverage(map, xs, weights):
     return total
 
 
-def coherence(path, photos, xs, times):
+def coherence(path, xs, times):
     """
-    Return pool of photos sufficiently coherent with current path,
-    based on features xs.
+    Return coherence of path, based on features xs.
     times forces unique photo per time bin per path (and eventually, ordering)
     """
-    # XXX WAIT THIS IS STUPID this should be a function eval not this crap
-    pool = []
-    for p1 in photos:
-        add = True
-        if (times[path].dot(times[p1]) > 0).any(): #same time bin as another photo in the path
-            continue
+    maxDist = 0.0 # for now, min coherence == max feature distance
+    for p1 in path:
         for p2 in path:
+            if p1 != p2 and times[p2].dot(times[p1]) > 0: # same time bin is really bad
+                return -float('inf')
             # TODO: what exactly do we want here? norm? dot prod?
             dist = np.linalg.norm(xs[p1] - xs[p2])
-            if dist > 2*TAU:
-                add = False
-                break
-        if add:
-            pool.append(p1)
-    return pool
+            if dist > maxDist:
+                maxDist = dist
+    return -maxDist
 
 
 def greedy(map, path, candidates, xs, weights):
@@ -79,6 +73,215 @@ def greedy(map, path, candidates, xs, weights):
             maxCoverage = c
             maxP = p
     path.append(maxP)
+
+
+
+def incCover(p, M, xs, weights):
+    """
+    Incremental coverage of new path p over current map M, using xs as features
+    weighted by weights
+    """
+    other = M + [p]
+    return coverage(other, xs, weights) - coverage(M, xs, weights)
+
+
+def CELF(map, candidates, xs, weights):
+    """
+    Use Leskovec et al.'s CELF to choose best coverage path from
+    candidates to add to map. Faster than greedy through lazy
+    evaluation of incremental coverage
+    """
+    if candidates.empty():
+        return
+    while True:
+        # Compute incremental coverage for top value in pq
+        d, p = candidates.get()
+        cov = incCover(p[0], map, xs, weights)
+        # If previously computed, we've found the best path
+        if p[1]:
+            map.append(p[0])
+            break
+        else:
+            candidates.put((-cov, (p[0], True)))
+
+
+def buildCoherenceGraph(xs, times, m=3, maxIter=10):
+    """
+    Form coherence graph G, where each node is an m-length coherent
+    path and an edge exists if the nodes overlap by m-1 steps. Every
+    node has coherence at least TAU. We do this using the general
+    best-first search strategy employed in metro maps.
+    Returns list of nodes (chains) and adjacency matrix.
+    """
+    items = np.arange(xs.shape[0])
+    # priority queue of subchains
+    pq = Queue.PriorityQueue()
+    # nodes of the graph
+    nodes = []
+
+    # Fill queue with pairs with sufficiently high coherence
+    for i in items:
+        for j in items:
+            if i != j:
+                c = coherence([i,j], xs, times)
+                if c > TAU:
+                    pq.put((-c, [i,j])) #negative because we want max coherence first
+
+    iter = 0
+    while not pq.empty() and iter < maxIter:
+        # Expand the chain with highest coherence using all possible extensions
+        coh, chain = pq.get()
+        # shuffle to add randomness
+        shuffle(items)
+        for i in items:
+            if i not in chain:
+                newChain = chain + [i]
+                c = coherence(newChain, xs, times)
+                if c > TAU:
+                    # If we reach length m, make a new node
+                    if len(newChain) >= m:
+                        nodes.append(newChain)
+                    else:
+                        pq.put((-c, newChain))
+        iter += 1
+
+    # Add edges to the graph
+    n = len(nodes)
+    edges = np.eye(n) # connect nodes to selves...
+    for i in np.arange(n):
+        for j in np.arange(i+1, n):
+            u = nodes[i]
+            v = nodes[j]
+            # If overlap by m-1, add an edge
+            hasEdge1 = hasEdge2 = True
+            for k in range(1, m):
+                if u[k] != v[k-1]:
+                    hasEdge1 = False
+                if v[k] != u[k-1]:
+                    hasEdge2 = False
+            if hasEdge1:
+                edges[i, j] = 1
+            if hasEdge2:
+                edges[j, i] = 1
+
+    return nodes, edges
+
+
+def RG(s, t, B, map, nodes, edges, bPaths, xs, weights, maxRecur=5):
+    """
+    Recursive greedy algorithm to solve submodular orienteering
+    problem.  Finds s-t walk of length at most B, with maximum
+    recursion depth maxRecur. Uses current estimate of map (set of chains).
+    Taken from (Chekuri and Pal, 2005).
+    Returns the path and its incremental coverage
+    """
+    # If no B-length s-t path, infeasible
+    if bPaths[s, t] == 0:
+        return [], 0.0
+
+    if maxRecur == 0:
+        # If found a neighboring pair, this is the best path
+        if edges[s, t] > 0:
+            p = [nodes[s], nodes[t]]
+            return p, incCover(p, map, xs, weights)
+        # Otherwise infeasible
+        return [], 0.0
+    P = []
+    m = 0.0
+    
+    # Guess middle node and cost to reach it, and recurse
+    # Note that the only candidate middle nodes are those within B from both s and t
+    guesses = set(np.nonzero(bPaths[s])[0]) & set(np.nonzero(bPaths[:,t])[0]) #set intersect
+    for v in guesses:
+        for b in np.arange(1, B+1):
+            # If either of these are infeasible, try another b
+            p1, c1 = RG(s, v, b, map, nodes, edges, bPaths, xs, weights, maxRecur-1)
+            if len(p1) == 0:
+                continue
+            p2, c2 = RG(v, t, B-b, map + [p1], nodes, edges, bPaths, xs, weights, maxRecur-1)
+            if len(p2) == 0:
+                continue
+
+            newM = incCover(p1 + p2, map, xs, weights)
+            if newM > m:
+                P = p1 + p2[1:] #start at 1 to omit the shared node
+                m = newM
+    return P, m
+
+
+def getCoherentPath(nodes, edges, map, xs, weights, maxRecur=5):
+    """
+    Return one coherent paths in G = (nodes, edges) that
+    maximizes coverage.  We accomplish this through submodular
+    orienteering with recursion depth maxRecur to find maximum coverage paths
+    between every two nodes in G, then we greedily choose the best
+    path to add to the map and repeat.
+    """
+    imgs = np.arange(xs.shape[0])
+    B = NUM_TIMES - len(nodes[0])
+    # Count paths <= B length in graph
+    bPaths = np.empty(edges.shape)
+    np.copyto(bPaths, edges)
+    for i in np.arange(1, B):
+        bPaths += bPaths.dot(edges)
+
+    # Build dict of img -> list of nodes beginning with img,
+    # and another for list of nodes ending with img
+    beginsWith = {}
+    endsWith = {}
+    for im in imgs:
+        begs = []
+        ends = []
+        for node in nodes:
+            if node[0] == im:
+                begs.append(nodes.index(node))
+            if node[-1] == im:
+                ends.append(nodes.index(node))
+        beginsWith[im] = begs
+        endsWith[im] = ends
+
+    # Candidates is a priority queue ordered in decreasing coverage
+    candidates = Queue.PriorityQueue()
+
+    # Use orienteering to get list of candidate paths
+    for im1 in imgs:
+        starts = beginsWith[im1]
+        for im2 in imgs:
+            if im1 == im2:
+                continue
+            ends = endsWith[im2]
+            maxPath = []
+            maxCov = 0.0
+
+            # Find best-coverage path between each pair of images
+            for s in starts:
+                for t in ends:
+                    p, c = RG(s, t, B, map, nodes, edges, bPaths, xs, weights, maxRecur)
+                    if c > maxCov:
+                        maxPath = p
+                        maxCov = c
+                        
+                # we keep 1 candidate per pair of images
+            if len(maxPath) > 0:
+                print maxPath
+                candidates.put((-maxCov, (maxPath, False))) #false is for use by celf
+
+    # Greedily choose best candidate
+    CELF(map, candidates, xs, weights)
+    print 'done with iteration', iter+1
+
+    # Flatten paths and return map
+    # (I wrote this all out to make it super explicit and less confusing)
+    # XXX can probably flatten earlier now
+    M = []
+    for p in map:
+        newP = []
+        for node in p:
+            for img in node:
+                if img not in newP:
+                    newP.append(img)
+        M.append(newP)
+    return M
 
 
 ################### DATA PROCESSING ########################
@@ -190,8 +393,10 @@ def fixInvalid(years, valid):
 
 
 def correctTimestamps(years, faces, clusters):
-    # Correct invalid timestamps
-    # In our case these are Feb 2014 (hack)
+    """
+    Correct invalid timestamps, using face clusters to predict reasonable times.
+    In our case, invalid times are Feb 2014 (hack)
+    """
     timeObjs = [time.localtime(y) for y in years]
     invalid = [x.tm_year == 2014 and x.tm_mon == 2 for x in timeObjs]
     valid = np.ma.masked_where(invalid, years)
@@ -208,8 +413,8 @@ def correctTimestamps(years, faces, clusters):
 
 def getNames():
     """
-        Get a master list of names from contacts.xml
-        """
+    Get a master list of names from contacts.xml
+    """
     names = []
     for line in open('../data/faces/contacts.xml'):
         try:
@@ -315,23 +520,16 @@ def getWeights(faces, times, places):
     return np.hstack([faceWeights, timeWeights, placeWeights])
 
 
-def getPool(photos, cl, faces, times, pairDists):
+def getPool(path, photos, times, xs):
     """
-    Return pool of photos containing faces in cl to initiate path construction.
-    Uses times and pairDists for coherence. Bit of a hack.
+    Return pool of photos that are sufficiently coherent with current path.
     """
-    # choose a pool of photos with sufficient number of people from cluster present
-    nonz = np.nonzero(faces[:,cl])[0]
-    sumz = dict(zip(nonz, np.apply_along_axis(np.count_nonzero, 1, faces[nonz][:,cl])))
-    pool = filter(lambda x: x in sumz.keys() and sumz[x]>len(cl)*TAU, photos)
-    
-    # choose a starter photo that has most sufficiently coherent photos
-    maxPool = []
-    for i in pool:
-        candidates = coherence([i], pool, pairDists, times)
-        if len(candidates) > len(maxPool):
-            maxPool = candidates
-    return maxPool
+    pool = []
+    for i in photos:
+        coh = coherence(path + [i], xs, times)
+        if coh > TAU:
+            pool.append(i)
+    return pool
 
 
 def getLandmarkDistances(ppl, landmarks):
@@ -394,15 +592,33 @@ def makeMap(prefix, faceClusters, faces, years, longitudes, latitudes, landmarks
         indices = list(set(ppl) - set(cl))
         newWeights[indices] *= -1
         
-        # Get pool of candidate photos
-        pool = getPool(photos, cl, faces, times, pairDists)
+        # Get pool of photos with sufficient number of ppl from cluster
+        nonz = np.nonzero(faces[:,cl])[0]
+        sumz = dict(zip(nonz, np.apply_along_axis(np.count_nonzero, 1, faces[nonz][:,cl])))
+        pool = filter(lambda x: x in sumz.keys() and sumz[x]>=len(cl), photos)
+
+        # Find high-coverage coherent paths
+        nodes, edges = buildCoherenceGraph(xs, times, m=3, maxIter=200) #pretty fast
+        print 'done building graph'
+        paths = getCoherentPath(nodes, edges, map, xs, newWeights, maxRecur=2) #sure as hell not fast
+        print 'done getting paths'
+
+        """
+        # Find the pool that will maximize length of path (hack)
+        maxPool = []
+        for i in pool:
+            newPool = getPool([i], pool, times, pairDists)
+            if len(newPool) > len(maxPool):
+                maxPool = newPool
+        pool = maxPool
 
         # Build a path via greedy choices from pool, using coherence to refine pool
         path = []
         for i in range(NUM_TIMES):
             greedy(paths, path, pool, xs, newWeights)
-            pool = coherence(path, pool, pairDists, times)
+            pool = getPool(path, pool, times, pairDists)
         paths.append(path)
+        """
 
     # Post-processing to tweak lines (mostly aesthetically)
     paths = fixLines(paths, faceClusters, faces, years)

@@ -17,7 +17,7 @@ import pico
 
 # Constraints of the map
 NUM_LINES = 10
-TAU = -2 # This is the minimum coherence constraint
+TAU = -1 # This is the minimum coherence constraint
 
 # Numbers of bins
 NUM_CLUSTERS = 200
@@ -32,11 +32,11 @@ prefix = 'test'
 ################### CORE ALGORITHM ########################
 
 
-def coverage(map, xs, weights):
+def coverage(paths, xs, weights):
     """
     Computes coverage of map, using xs as features weighted by weights.
     """
-    subset = list(set(cbook.flatten(map)))
+    subset = list(set(cbook.flatten(paths)))
     total = (1 - np.prod(1 - xs[subset], axis=0)).dot(weights)
     return total
 
@@ -49,8 +49,8 @@ def coherence(path, xs, times):
     maxDist = 0.0 # for now, min coherence == max feature distance
     for p1 in path:
         for p2 in path:
-            if p1 != p2 and times[p2].dot(times[p1]) > 0: # same time bin is really bad
-                return -float('inf')
+        #    if p1 != p2 and times[p2].dot(times[p1]) > 0: # same time bin is really bad
+        #        return -float('inf')
             # TODO: what exactly do we want here? norm? dot prod?
             dist = np.linalg.norm(xs[p1] - xs[p2])
             if dist > maxDist:
@@ -58,7 +58,7 @@ def coherence(path, xs, times):
     return -maxDist
 
 
-def greedy(map, path, candidates, xs, weights):
+def greedy(paths, path, candidates, xs, weights):
     """
     Greedily choose the candidate with max coverage relative to map+path,
     and add to path. Uses xs as features with the given weights.
@@ -66,7 +66,7 @@ def greedy(map, path, candidates, xs, weights):
     maxCoverage = -float('inf') #note that if weights are negative, we can have negative coverage!
     if len(candidates) == 0:
         return
-    totalMap = list(set(cbook.flatten(map))) + path
+    totalMap = list(set(cbook.flatten(paths))) + path
     for p in candidates:
         c = coverage(totalMap + [p], xs, weights)
         if c > maxCoverage:
@@ -387,6 +387,15 @@ def makeMap(prefix, faceClusters, faces, years, longitudes, latitudes, landmarks
         nonz = np.nonzero(faces[:,cl])[0]
         sumz = dict(zip(nonz, np.apply_along_axis(np.count_nonzero, 1, faces[nonz][:,cl])))
         pool = filter(lambda x: x in sumz.keys() and sumz[x]>=len(cl), photos)
+
+        """
+        # Find high-coverage coherent paths
+        # XXX how to get variable length paths using this?
+        nodes, edges = buildCoherenceGraph(pool, xs, times, m=2, maxIter=200) #pretty fast
+        print 'done building graph', len(nodes), 'nodes'
+        getCoherentPath(pool, nodes, edges, paths, xs, newWeights, maxRecur=2) #sure as hell not fast
+        print 'done getting paths'
+        """
 
         # Find the pool that will maximize length of path (hack)
         maxPool = []
