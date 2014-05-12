@@ -17,16 +17,16 @@ import pico
 
 # Constraints of the map
 NUM_LINES = 10
-TAU = -1 # This is the minimum coherence constraint
+TAU = -1.5 # This is the minimum coherence constraint
 
 # Numbers of bins
 NUM_CLUSTERS = 200
-NUM_TIMES = 50
+NUM_TIMES = 100
 NUM_LOCS = 200
 
 # For output files etc.
 websitePath = '../apriltuesday.github.io/'
-prefix = 'test'
+prefix = 'newTest'
 
 
 ################### CORE ALGORITHM ########################
@@ -124,23 +124,15 @@ def bin(values, k):
     """
     n = values.shape[0]
     items = np.arange(n)
-
-    # sorted items that have a valid value
-    sortedItems = sorted(items[np.isfinite(values)], key=lambda i: values[i])
-    # unique values, sorted
-    sortedVals = sorted(set(values))
-    # number of values per bin
-    num = int(np.ceil(len(sortedVals) / k))
-    if num == 0:
-        bins = [[x] for x in sortedVals]
-    else:
-        bins = [sortedVals[x:x+num] for x in range(0, len(sortedVals), num)]
+    maxVal = max(values)
+    minVal = min(values)
+    length = (maxVal - minVal) / k # length of interval
 
     # Compute binary vector for each item based on its value
-    vectors = np.zeros((n, len(bins)))
+    vectors = np.zeros((n, k))
     for i in items:
         if np.isfinite(values[i]):
-            whichBin = map(lambda x: values[i] in x, bins).index(True)
+            whichBin = int((values[i] - minVal) / length) - 1
             vectors[i, whichBin] = 1
     return vectors
 
@@ -317,6 +309,8 @@ def getPool(path, photos, times, xs):
     """
     pool = []
     for i in photos:
+        if i in path:
+            continue
         coh = coherence(path + [i], xs, times)
         if coh > TAU:
             pool.append(i)

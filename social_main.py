@@ -20,7 +20,7 @@ NUM_PPL = 5
 
 # Numbers of bins
 NUM_CLUSTERS = 20
-NUM_TIMES = 7
+NUM_TIMES = 10
 NUM_LOCS = 200
 
 # For output files etc.
@@ -49,23 +49,15 @@ def bin(values, k):
     """
     n = values.shape[0]
     items = np.arange(n)
-
-    # sorted items that have a valid value
-    sortedItems = sorted(items[np.isfinite(values)], key=lambda i: values[i])
-    # unique values, sorted
-    sortedVals = sorted(set(values))
-    # number of values per bin
-    num = int(np.ceil(len(sortedVals) / k))
-    if num == 0:
-        bins = [[x] for x in sortedVals]
-    else:
-        bins = [sortedVals[x:x+num] for x in range(0, len(sortedVals), num)]
+    maxVal = max(values)
+    minVal = min(values)
+    length = (maxVal - minVal) / k # length of interval
 
     # Compute binary vector for each item based on its value
-    vectors = np.zeros((n, len(bins)))
+    vectors = np.zeros((n, k))
     for i in items:
         if np.isfinite(values[i]):
-            whichBin = map(lambda x: values[i] in x, bins).index(True)
+            whichBin = int((values[i] - minVal) / length) - 1
             vectors[i, whichBin] = 1
     return vectors
 
@@ -222,10 +214,11 @@ if __name__ == '__main__':
 
     # Bin times and locations
     times, places = binValues(years, longitudes, latitudes)
+    NUM_TIMES = times.shape[1]
 
     # Create a social graph for each point in time
     for iter in np.arange(NUM_TIMES):
-        prefix = 'testing' + str(iter)
+        prefix = 'newTest' + str(iter)
         pool = np.nonzero(times[:, iter])[0]
         clusters = makeGraph(pool, faces, faceClusters) #each is a cluster
 
