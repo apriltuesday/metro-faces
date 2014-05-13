@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cbook as cbook
 from random import sample, choice, shuffle, random
 from collections import Counter
+from smallestenclosingcircle import make_circle
 import Queue
 import pico
 
@@ -196,6 +197,47 @@ def makeGraph(pool, faces, faceClusters):
         greedy(subset, ppl, xs, np.ones(xs.shape[1])) #uniform weights
     return subset
 
+
+def saveFaces(subset, pool, images, names, landmarks, iter):
+    """
+    Save representative photo for each face in subset from the given
+    pool of photos, cropped to a circle centered on the bounding box.
+    """
+    # Save image for each face
+    for s in subset:
+        path = websitePath + 'images/' + names[s] + str(iter) + '.png'
+        photosWithFace = list(set(np.nonzero(faces[:, s])[0]) & set(pool))
+        if len(photosWithFace) == 0:
+            continue
+        # Use photo with largest face (TODO future would do something smarter)
+        maxRad = 0.0
+        maxP = float('inf')
+        for p in photosWithFace:
+            # get circle enclosing landmarks
+            w, h, rgb = images[p].shape
+            cx, cy, rad = make_circle(zip(landmarks[p, s, :, 1] * w, landmarks[p, s, :, 0] * h))
+            if rad > maxRad and cx > rad and cx < w-rad and cy > rad and cy < h-rad:
+                maxRad = rad
+                maxP = p
+
+        p = maxP
+        w, h, rgb = images[p].shape
+        cx, cy, rad = make_circle(zip(landmarks[p, s, :, 1] * w, landmarks[p, s, :, 0] * h))
+        if rad < w/2 and rad < h/2:
+            if cx > rad: #bit of a hack
+                cx -= rad
+            if cy > rad:
+                cy -= rad
+            rad *= 1.2 #bit of a buffer
+
+        X, Y = np.ogrid[0:w, 0:h]
+        mask = (X - cx)**2 + (Y - cy)**2 > rad*rad
+        img = np.dstack([images[p], 256*np.ones(images[p].shape[:2] + (1,))]) # add an alpha channel
+        img[mask] = 0
+        img = img[cx - rad : cx + rad, cy - rad : cy + rad] #crop
+        if len(img) > 0 and len(img[0]) > 0:
+            misc.imsave(path, img)
+
         
 if __name__ == '__main__':
     # Load data
@@ -206,6 +248,8 @@ if __name__ == '__main__':
     longitudes = mat['longitudes'].flatten()
     latitudes = mat['latitudes'].flatten()
     names = getNames()
+    landmarks = io.loadmat('../data/landmarks.mat')['landmarks'] # 988 x 223 x 49 x 2
+    landmarks = np.vstack([landmarks, np.zeros((1, 223, 49, 2))]) # wtf is wrong with this
 
     # Form hashtable of (group of faces) -> (photo count), and correct timestamps
     faceClusters = clusterFaces(faces)
@@ -218,13 +262,15 @@ if __name__ == '__main__':
 
     # Create a social graph for each point in time
     for iter in np.arange(NUM_TIMES):
-        prefix = 'newTest' + str(iter)
+        prefix = '5-12-14_test' + str(iter)
         pool = np.nonzero(times[:, iter])[0]
         clusters = makeGraph(pool, faces, faceClusters) #each is a cluster
 
-        # Form adjacency matrix of social graph
-        subset = list(set(cbook.flatten(clusters)))
+        newFaces = faces[pool]
+        subset = list( set(cbook.flatten(clusters)) & set(np.nonzero(newFaces)[1]) )
         m = len(subset)
+        saveFaces(subset, pool, images, names, landmarks, iter)
+        # Form adjacency matrix of social graph
         A = np.array([np.sum(np.product(faces[:,[i, j]], axis=1)) for i in subset for j in subset]).reshape((m,m))
         # Save adjacency matrix to json
         saveGraph(websitePath + prefix + '-graph.json', A, clusters, names, subset)           
