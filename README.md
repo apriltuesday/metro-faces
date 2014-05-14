@@ -4,14 +4,14 @@
 ### Current Version (main.py)
 
 * New focus on social graph, relationships over time
-* More lightweight notion of coherence (using co-clustering)
+* More lightweight notion of coherence (using face cluster counts and visual smoothness)
 * More work on the user interface and interaction components
 
 #### To-do's
+* better visual features, for visual continuity (both metro map and social graph)
+* better global optimization, especially for structure and coherence
 * soft clustering/overlapping community detection of faces (BigClam?)
 * more principled (but still fast) coherence algorithm
-* structure/connectivity optimization (possibly not necessary)
-* better line layout, display of connections, non-overlapping links
 * coordinated selection between metro map and social graph
 * add the geographic map
 * zooming and on-the-fly map creation
@@ -21,8 +21,9 @@
 * features weighted by frequency in dataset
 * timestamps corrected by drawing from a distribution defined by valid timestamps of
   photos in the same cluster (something of a hack)
-* faces clustered by co-clustering co-occurrence matrix (w/o me)
-* greedily choose a face cluster per metro line based on coverage of photos
+* faces clustered by counting occurrences of face groups and sorting based on size of
+  group (small is good) and number of photos covered (large is good)
+* choose a face cluster per metro line
 * for each line, greedily (based on coverage of faces/times/place) choose photos containing
   at least one face in its cluster, throwing out photos not sufficiently coherent with
   existing line on each iteration
@@ -31,10 +32,13 @@
   y-axis for separation of lines) and collision detection (so nodes don't overlap)
 * hacky things: lines are organized vertically roughly so that lines sharing photos are nearby
 
-#### Social Graph
+#### Social Graph (social_main.py)
 * approximation of social graph induced from photos
 * nodes colored by cluster membership (social group)
 * edges weighted by number of photos the nodes co-occur in (relationship strength)
+* one graph per time bin, displaying clusters chosen greedily based on coverage of
+  photos
+* faces as nodes, chosen (for now) based on size of face
 
 -------------------------------------------------
 

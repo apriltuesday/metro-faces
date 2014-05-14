@@ -21,12 +21,12 @@ TAU = -1.5 # This is the minimum coherence constraint
 
 # Numbers of bins
 NUM_CLUSTERS = 200
-NUM_TIMES = 100
+NUM_TIMES = 50
 NUM_LOCS = 200
 
 # For output files etc.
 websitePath = '../apriltuesday.github.io/'
-prefix = 'newTest'
+prefix = 'newestTest'
 
 
 ################### CORE ALGORITHM ########################
