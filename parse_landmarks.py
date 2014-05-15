@@ -11,8 +11,11 @@ from libxmp import utils
 
 
 directory = '../data/faces/'
-fn = sys.argv[1]
+landmarksFile = '../data/landmarks.csv'
+poseFile = '../data/pose.csv'
 landmarks = [] # dimension (# photos) x (# faces) x (# landmarks) x 2 (coordinates)
+unnormLandmarks = [] # normalized by image dimensions
+poses = [] # dimension (# photos) x (# faces) x 3 (YPR)
 NUM_LANDMARKS = 49
 
 # First get image dimensions
@@ -39,23 +42,43 @@ for filename in os.listdir(directory):
 i = 1
 img = 0
 faceVect = []
+unnormFace = []
 photoVect = []
-for line in open(fn):
+unnormPhoto = []
+for line in open(landmarksFile):
     if '.jpg' in line:
         w, h = dims[img]
         img += 1
         landmarks.append(photoVect)
+        unnormLandmarks.append(unnormPhoto)
         photoVect = []
+        unnormPhoto = []
         continue
 
     coords = [int(x) for x in line.split(',')]
     faceVect.append([coords[0] / w, coords[1] / h] if coords[0] > 0 else [-1,-1])
+    unnormFace.append([coords[0], coords[1]])
     if i == NUM_LANDMARKS:
         i = 1
         photoVect.append(faceVect)
+        unnormPhoto.append(unnormFace)
         faceVect = []
+        unnormFace = []
     else:
         i += 1
 
+# Finally parse poses file
+photoVect = []
+for line in open(poseFile):
+    if '.jpg' in line:
+        poses.append(photoVect)
+        photoVect = []
+        continue
+    ypr = [float(x) for x in line.split(',')]
+    photoVect.append(ypr)
+
 # Save as .mat file
-io.savemat('../data/landmarks.mat', {'landmarks': landmarks[1:] } )
+io.savemat('../data/landmarks.mat', {
+        'landmarks': landmarks[1:],
+        'unnormLandmarks': unnormLandmarks[1:],
+        'poses': poses[1:] } )
