@@ -16,7 +16,7 @@ import Queue
 import pico
 
 # Constraints of the map
-NUM_LINES = 10
+NUM_LINES = 50
 TAU = 0.5 # This is the minimum coherence constraint
 
 # Numbers of bins
@@ -26,7 +26,7 @@ NUM_LOCS = 200
 
 # For output files etc.
 websitePath = '../apriltuesday.github.io/'
-prefix = '5-15-14_strong'
+prefix = '5-16-14_test'
 
 
 ################### CORE ALGORITHM ########################
@@ -59,7 +59,7 @@ def coherence(path, xs, times):
     return -maxDist
 
 
-def greedy(paths, path, candidates, xs, weights):
+def greedy(paths, candidates, xs, weights):
     """
     Greedily choose the candidate with max coverage relative to map+path,
     and add to path. Uses xs as features with the given weights.
@@ -67,13 +67,14 @@ def greedy(paths, path, candidates, xs, weights):
     maxCoverage = -float('inf') #note that if weights are negative, we can have negative coverage!
     if len(candidates) == 0:
         return
-    totalMap = list(set(cbook.flatten(paths))) + path
+    totalMap = list(set(cbook.flatten(paths)))
     for p in candidates:
         c = coverage(totalMap + [p], xs, weights)
         if c > maxCoverage:
             maxCoverage = c
             maxP = p
-    path.append(maxP)
+    paths.append(maxP)
+    candidates.remove(maxP)
 
 
 ################### DATA PROCESSING ########################
@@ -210,7 +211,7 @@ def getNames():
     return np.array(names)
 
 
-def saveMap(filename, paths, images, faces, years, longs, lats):
+def saveMap(filename, paths, images, faces, years, places):
     """
     Save map in a JSON file. Also save the corresponding photos.
     Store feature data as attributes of each node.
@@ -233,7 +234,8 @@ def saveMap(filename, paths, images, faces, years, longs, lats):
         #misc.imsave(websitePath + imgPath, images[node]) #XXX suspect don't need this anymore
         s = '{"id": ' + str(node) + ', "line": ' + str(pathInd[node])
         s += ', "faces": [' + ','.join([str(x) for x in np.nonzero(faces[node])[0]]) + ']'
-        s += ', "time": ' + str(years[node]) + ', "long": ' + str(longs[node]) + ', "lat": ' + str(lats[node])
+        p = np.nonzero(places[node])[0]
+        s += ', "time": ' + str(years[node]) + ', "place": ' + str(p[0] if len(p) > 0 else -1)
         s += '}'
         strs.append(s)
     f.write(',\n'.join(strs) + '],\n"links": [\n')
@@ -304,20 +306,6 @@ def getWeights(faces, times, places):
     return np.hstack([faceWeights, timeWeights, placeWeights])
 
 
-def getPool(path, photos, times, xs):
-    """
-    Return pool of photos that are sufficiently coherent with current path.
-    """
-    pool = []
-    for i in photos:
-        if i in path:
-            continue
-        coh = coherence(path + [i], xs, times)
-        if coh > TAU:
-            pool.append(i)
-    return pool
-
-
 def getLandmarkDistances(ppl, landmarks):
     """
     Get pairwise distance vectors for landmark info.
@@ -336,37 +324,10 @@ def fixLines(paths, faceClusters, faces, years):
     -sort by year
     -order to improve layout
     """
-    # Fix lines to show overlaps in faces
-    """
-    for i in range(len(paths)):
-        for j in range(len(paths)):
-            if i == j:
-                continue
-            for img in paths[j]:
-                if sum(faces[img, faceClusters[i]]) == len(faceClusters[i]): #img includes all the faces in i
-                    paths[i].append(img)
-    """
     # Sort and re-order lines to improve layout
     paths = [sorted(x, key=lambda x: years[x]) for x in paths]
     orderLines(paths, faceClusters)
     return paths
-
-
-def orderByGreedy(faceClusters, xs):
-    """
-    Choose just NUM_CLUSTERS clusters, order by greedy coverage of photos.
-    """
-    finalClusters = []
-    for i in np.arange(NUM_CLUSTERS):
-        maxCoverage = 0.0
-        for cl in faceClusters:
-            c = coverage(finalClusters + [cl], xs, np.ones(xs.shape[1]))
-            if c > maxCoverage:
-                maxCoverage = c
-                maxCl = cl
-        finalClusters.append(maxCl)
-        faceClusters.remove(maxCl)
-    return finalClusters
 
 
 ################### MAIN METHODS ########################
@@ -384,62 +345,28 @@ def makeMap(prefix, faceClusters, faces, years, longitudes, latitudes, landmarks
 
     # Set up some additional feature vectors and weights
     times, places = binValues(years, longitudes, latitudes)
-    """
-    xs = np.hstack([faces, times, places]) #feature vectors for coverage
+    xs = np.hstack([faces, times, places])
     weights = getWeights(faces, times, places)
-    pairDists = getLandmarkDistances(list(set(cbook.flatten(faceClusters))), landmarks) #pairwise distance for coherence
-    angles = poses.reshape((n, 3*m)) / 360 #normalize
-    ys = np.hstack([pairDists, angles]) #feature vectors for coherence
-    """
     
-    # For each face cluster, get high-coverage coherent path for its photos
-    paths = []
+    # Get candidate lines, one per cluster
+    candidates = []
     for cl in faceClusters:
-        """
-        # modify weights to de-emphasize faces outside the cluster
-        newWeights = np.copy(weights)
-        indices = list(set(ppl) - set(cl))
-        newWeights[indices] *= -1
-        """
         # Get pool of photos with sufficient number of ppl from cluster
         nonz = np.nonzero(faces[:,cl])[0]
-        #pool = list(set(nonz))
-
         sumz = dict(zip(nonz, np.apply_along_axis(np.count_nonzero, 1, faces[nonz][:,cl])))
         pool = filter(lambda x: x in sumz.keys() and sumz[x]>=TAU*len(cl), photos)
+        candidates.append(pool)
 
-        paths.append(pool)
-
-        """
-        # Find high-coverage coherent paths
-        # XXX how to get variable length paths using this?
-        nodes, edges = buildCoherenceGraph(pool, xs, times, m=2, maxIter=200) #pretty fast
-        print 'done building graph', len(nodes), 'nodes'
-        getCoherentPath(pool, nodes, edges, paths, xs, newWeights, maxRecur=2) #sure as hell not fast
-        print 'done getting paths'
-        """
-
-        """
-        # Find the pool that will maximize length of path (hack)
-        maxPool = []
-        for i in pool:
-            newPool = getPool([i], pool, times, ys)
-            if len(newPool) > len(maxPool):
-                maxPool = newPool
-        pool = maxPool
-
-        # Build a path via greedy choices from pool, using coherence to refine pool
-        path = []
-        for i in range(NUM_TIMES):
-            greedy(paths, path, pool, xs, newWeights)
-            pool = getPool(path, pool, times, ys)
-        paths.append(path)
-        """
+    # Choose candidates to optimize coverage and connectivity (future: coherence?!)
+    paths = []
+    for i in np.arange(NUM_LINES):
+        greedy(paths, candidates, xs, weights)
+    # TODO: structure? adding/merging lines?
         
-    # Post-processing to tweak lines (mostly aesthetically)
+    # Post-processing to tweak lines
     paths = fixLines(paths, faceClusters, faces, years)
     
-    return paths
+    return paths, places
 
 
 def mapFromParams(prefix, facelist, timeframe, longframe, latframe):
@@ -454,7 +381,7 @@ def mapFromParams(prefix, facelist, timeframe, longframe, latframe):
     """
     mat = io.loadmat('../data/April_full_gps.mat')
     images = mat['images'][:,0]
-    faces = mat['facesBinary'] #mat['faces']
+    faces = mat['facesBinary'] + mat['faces']
     years = mat['timestamps'].flatten()
     longitudes = mat['longitudes'].flatten()
     latitudes = mat['latitudes'].flatten()
@@ -492,9 +419,6 @@ def mapFromParams(prefix, facelist, timeframe, longframe, latframe):
     landmarks = landmarks[pool]
     poses = poses[pool]
 
-    # Omit people who don't appear -- TODO not sure if we'll need this
-#    names = names[~np.all(faces == 0, axis=0)]
-#    faces = faces[:, ~np.all(faces == 0, axis=0)]
     n, m = faces.shape
     ppl = np.arange(m)
 
@@ -508,17 +432,15 @@ def mapFromParams(prefix, facelist, timeframe, longframe, latframe):
     # Form hashtable of (group of faces) -> (photo count), and correct timestamps
     faceClusters = clusterFaces(faces)
     correctTimestamps(years, faces, faceClusters)
-    faceClusters = orderByGreedy(faceClusters[:NUM_CLUSTERS], faces.T)
+    faceClusters = faceClusters[:NUM_CLUSTERS]
 
     ########### MAKING THE MAP ###############
 
-    paths = makeMap(prefix, faceClusters, faces, years, longitudes, latitudes, landmarks, poses)
+    paths, places = makeMap(prefix, faceClusters, faces, years, longitudes, latitudes, landmarks, poses)
 
     # Save map to json
     np.place(years, np.isinf(years), np.mean(years))
-    np.place(longitudes, np.isinf(longitudes), 0)
-    np.place(latitudes, np.isinf(latitudes), 0)
-    saveMap(websitePath + prefix + '-map.json', paths, images, faces, years, longitudes, latitudes)
+    saveMap(websitePath + prefix + '-map.json', paths, images, faces, years, places)
     # Save adjacency matrix to json
     saveGraph(websitePath + prefix + '-graph.json', A, faceClusters, names)
 
