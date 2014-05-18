@@ -26,7 +26,7 @@ NUM_LOCS = 200
 
 # For output files etc.
 websitePath = '../apriltuesday.github.io/'
-prefix = '5-16-14_test'
+prefix = '5-17-14_test'
 
 
 ################### CORE ALGORITHM ########################
@@ -75,6 +75,23 @@ def greedy(paths, candidates, xs, weights):
             maxP = p
     paths.append(maxP)
     candidates.remove(maxP)
+
+
+def improveStructure(paths, candidates):
+    """
+    Local search to improve structure of paths.
+    -> if two lines overlap by >50%, merge
+    -> if a line increases connectivity, add
+    """
+    # Add lines that don't overleap too much but increase connectivity
+    toAdd = []
+    for p1 in candidates:
+        for p2 in paths:
+            intersection = set(p1) & set(p2)
+            if len(intersection) >= 1 and len(intersection) < len(p2) / 2:
+                toAdd.append(p1)
+                break
+    return paths + toAdd
 
 
 ################### DATA PROCESSING ########################
@@ -362,6 +379,7 @@ def makeMap(prefix, faceClusters, faces, years, longitudes, latitudes, landmarks
     for i in np.arange(NUM_LINES):
         greedy(paths, candidates, xs, weights)
     # TODO: structure? adding/merging lines?
+    paths = improveStructure(paths, candidates)
         
     # Post-processing to tweak lines
     paths = fixLines(paths, faceClusters, faces, years)
