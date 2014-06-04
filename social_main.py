@@ -17,11 +17,11 @@ import Queue
 import pico
 
 # Constraints of the map
-NUM_PPL = 5
+NUM_PPL = 8
 
 # Numbers of bins
 NUM_CLUSTERS = 20
-NUM_TIMES = 10
+NUM_TIMES = 50
 NUM_LOCS = 200
 
 # For output files etc.
@@ -262,14 +262,14 @@ if __name__ == '__main__':
 
     # Create a social graph for each point in time
     for iter in np.arange(NUM_TIMES):
-        prefix = '5-12-14_test' + str(iter)
+        prefix = '6-3-14_new' + str(iter)
         pool = np.nonzero(times[:, iter])[0]
         clusters = makeGraph(pool, faces, faceClusters) #each is a cluster
 
         newFaces = faces[pool]
         subset = list( set(cbook.flatten(clusters)) & set(np.nonzero(newFaces)[1]) )
         m = len(subset)
-        saveFaces(subset, pool, images, names, landmarks, iter)
+        #saveFaces(subset, pool, images, names, landmarks, iter)
         # Form adjacency matrix of social graph
         A = np.array([np.sum(np.product(faces[:,[i, j]], axis=1)) for i in subset for j in subset]).reshape((m,m))
         # Save adjacency matrix to json

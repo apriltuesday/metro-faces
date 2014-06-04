@@ -16,17 +16,17 @@ import Queue
 import pico
 
 # Constraints of the map
-NUM_LINES = 50
+NUM_LINES = 20
 TAU = 0.5 # This is the minimum coherence constraint
 
 # Numbers of bins
-NUM_CLUSTERS = 100
+NUM_CLUSTERS = 200
 NUM_TIMES = 50
 NUM_LOCS = 200
 
 # For output files etc.
 websitePath = '../apriltuesday.github.io/'
-prefix = '5-17-14_test'
+prefix = '5-31-14_test'
 
 
 ################### CORE ALGORITHM ########################
@@ -50,8 +50,6 @@ def coherence(path, xs, times):
     masked = np.ma.masked_where(~np.isfinite(xs), xs)
     for p1 in path:
         for p2 in path:
-        #    if p1 != p2 and times[p2].dot(times[p1]) > 0: # same time bin is really bad
-        #        return -float('inf')
             # TODO: what exactly do we want here? norm? dot prod?
             dist = np.sqrt(np.sum((masked[p1] - masked[p2])**2))
             if dist > maxDist:
@@ -64,34 +62,67 @@ def greedy(paths, candidates, xs, weights):
     Greedily choose the candidate with max coverage relative to map+path,
     and add to path. Uses xs as features with the given weights.
     """
-    maxCoverage = -float('inf') #note that if weights are negative, we can have negative coverage!
     if len(candidates) == 0:
-        return
-    totalMap = list(set(cbook.flatten(paths)))
-    for p in candidates:
-        c = coverage(totalMap + [p], xs, weights)
+        return None, None
+    maxCoverage = -float('inf') #note that if weights are negative, we can have negative coverage!
+    totalMap = list(cbook.flatten(paths.keys())) #values()))
+    for cl, p in candidates.items():
+        c = coverage(totalMap + list(cl), xs, weights) #p
         if c > maxCoverage:
             maxCoverage = c
             maxP = p
-    paths.append(maxP)
-    candidates.remove(maxP)
+            maxCl = cl
+    return maxCl, maxP
 
 
-def improveStructure(paths, candidates):
+def improveStructure(paths, candidates, faces):
     """
     Local search to improve structure of paths.
     -> if two lines overlap by >50%, merge
     -> if a line increases connectivity, add
     """
-    # Add lines that don't overleap too much but increase connectivity
-    toAdd = []
+    # If two disjoint lines have a common face, connect them!
+    for cl1, p1 in paths.items():
+        for cl2, p2 in paths.items():
+            if len(set(p1) & set(p2)) == 0:
+                faces1 = faces[p1]
+                faces2 = faces[p2]
+                common = set(np.nonzero(faces1)[1]) & set(np.nonzero(faces2)[1])
+                if len(common) == 0:
+                    continue
+                #for cl in candidates.keys():
+                #    if set(cl) < common:
+                #        paths[cl] = candidates[cl]
+                #        candidates.pop(cl)
+                #        break
+                for f in common:
+                    newPath = set(np.array(p1)[np.nonzero(faces1[:,f])[0]]) | set(np.array(p2)[np.nonzero(faces2[:,f])[0]])
+                    paths[f] = list(newPath)
+                    break
+
+    """
+    # Add lines that don't overlap too much but increase connectivity
     for p1 in candidates:
         for p2 in paths:
             intersection = set(p1) & set(p2)
-            if len(intersection) >= 1 and len(intersection) < len(p2) / 2:
-                toAdd.append(p1)
+            if len(intersection) >= 1 and (len(intersection) < len(p1) / 2 and len(intersection) < len(p1) / 2):
+                #toAdd.append(p1)
+                paths.append(p1)
                 break
-    return paths + toAdd
+    #paths += toAdd
+
+    # Merge lines that overlap too much
+    newPaths = [set(paths[0])]
+    for p1 in paths[1:]:
+        for p2 in newPaths:
+            intersection = set(p1) & p2
+            if len(intersection) > len(p1) / 2 and len(intersection) > len(p2) / 2:
+                p2 |= set(p1)
+                break
+        newPaths.append(set(p1))
+    paths = [list(x) for x in newPaths]
+    """
+    return paths #newPaths
 
 
 ################### DATA PROCESSING ########################
@@ -110,30 +141,33 @@ def clusterFaces(faces):
     return sortedClusters
 
 
-def orderLines(paths, faceClusters):
+def orderLines(paths):
     """
     Order lines and clusters according to shared images (in place).
     """
     # This makes the visualization easier and is kind of a huge hack
-    # TODO maybe want to sort by shared faces?  time?
     i = 0
-    while i < NUM_LINES:
+    n = len(paths)
+    cls = paths.keys()
+    ps = [paths[c] for c in cls]
+    while i < n:
         maxInt = 0
         maxJ = 0
-        for j in range(i+1, NUM_LINES):
-            intersect = len(set(paths[i]) & set(paths[j]))
+        for j in range(i+1, n):
+            intersect = len(set(ps[i]) & set(ps[j]))
             if intersect > maxInt: #largest intersection
                 maxJ = j
                 maxInt = intersect
         if maxInt > 0: #swap
-            temp = paths[maxJ]
-            paths[maxJ] = paths[i+1]
-            paths[i+1] = temp
+            temp = ps[maxJ]
+            ps[maxJ] = ps[i+1]
+            ps[i+1] = temp
             # also swap corresponding face clusters
-            temp = faceClusters[maxJ]
-            faceClusters[maxJ] = faceClusters[i+1]
-            faceClusters[i+1] = temp
+            temp = cls[maxJ]
+            cls[maxJ] = cls[i+1]
+            cls[i+1] = temp
         i += 1
+    paths = dict(zip(cls, ps))
 
 
 def bin(values, k):
@@ -228,11 +262,12 @@ def getNames():
     return np.array(names)
 
 
-def saveMap(filename, paths, images, faces, years, places):
+def saveMap(filename, pathsDict, images, faces, years, places):
     """
     Save map in a JSON file. Also save the corresponding photos.
     Store feature data as attributes of each node.
     """
+    paths = [pathsDict[cl] for cl in pathsDict.keys()]
     f = open(filename, 'w+')
     nodes = list(set(cbook.flatten(paths)))
     pathInd = {} #easier form to work with here
@@ -334,7 +369,7 @@ def getLandmarkDistances(ppl, landmarks):
     return pairDists
 
 
-def fixLines(paths, faceClusters, faces, years):
+def fixLines(paths, years):
     """
     Do a few things to fix paths:
     -put photos in other lines to show overlaps
@@ -342,9 +377,26 @@ def fixLines(paths, faceClusters, faces, years):
     -order to improve layout
     """
     # Sort and re-order lines to improve layout
-    paths = [sorted(x, key=lambda x: years[x]) for x in paths]
-    orderLines(paths, faceClusters)
+    for cl in paths.keys():
+        paths[cl] = sorted(paths[cl], key=lambda x: years[x])
+#    orderLines(paths)
     return paths
+
+
+def clusterFaces(A, faces):
+    """
+    Cluster faces using co-clustering of co-occurrence matrix A.
+    Return the clusters we use for lines, which maximally cover the photos.
+    """
+    c = cluster.bicluster.SpectralCoclustering(n_clusters=NUM_CLUSTERS, svd_method='arpack')
+    c.fit(A)
+    clusters = [] #list of lists, each of which lists face indices in that cluster
+    for i in range(NUM_CLUSTERS):
+        clusters.append(c.get_indices(i)[0])        
+    whichClusters = []
+    for i in range(NUM_LINES):
+        greedy(whichClusters, clusters, faces.T, np.ones(n))
+    return whichClusters
 
 
 ################### MAIN METHODS ########################
@@ -364,26 +416,36 @@ def makeMap(prefix, faceClusters, faces, years, longitudes, latitudes, landmarks
     times, places = binValues(years, longitudes, latitudes)
     xs = np.hstack([faces, times, places])
     weights = getWeights(faces, times, places)
-    
+
     # Get candidate lines, one per cluster
-    candidates = []
-    for cl in faceClusters:
+    candidates = {} # dict from cluster to candidate
+    for cl in faceClusters: #[:NUM_LINES]: #XXX
         # Get pool of photos with sufficient number of ppl from cluster
         nonz = np.nonzero(faces[:,cl])[0]
         sumz = dict(zip(nonz, np.apply_along_axis(np.count_nonzero, 1, faces[nonz][:,cl])))
         pool = filter(lambda x: x in sumz.keys() and sumz[x]>=TAU*len(cl), photos)
-        candidates.append(pool)
+        candidates[cl] = pool
+#    paths = candidates #XXX
 
     # Choose candidates to optimize coverage and connectivity (future: coherence?!)
-    paths = []
+    paths = {} # dict from cluster to path
     for i in np.arange(NUM_LINES):
-        greedy(paths, candidates, xs, weights)
+        cl, p = greedy(paths, candidates, faces.T, np.ones(n)) #xs, weights)
+        if not p: # no more candidates
+            break
+        print cl
+        paths[cl] = sorted(p, key=lambda x: years[x])
+        candidates.pop(cl)
+
+        # Increase weights of faces in photos in the map not yet covered by a line
+        #facesInPhotos = set(np.nonzero(faces[list(cbook.flatten(paths.values()))])[1])
+        #facesInClusters = set(cbook.flatten(paths.keys()))
+        #indices = list(facesInPhotos - facesInClusters)
+        #newWeights = weights.copy()
+        #newWeights[indices] *= 2 #xxx
+
     # TODO: structure? adding/merging lines?
-    paths = improveStructure(paths, candidates)
-        
-    # Post-processing to tweak lines
-    paths = fixLines(paths, faceClusters, faces, years)
-    
+
     return paths, places
 
 
@@ -458,6 +520,7 @@ def mapFromParams(prefix, facelist, timeframe, longframe, latframe):
 
     # Save map to json
     np.place(years, np.isinf(years), np.mean(years))
+    print 'number of paths', len(paths)
     saveMap(websitePath + prefix + '-map.json', paths, images, faces, years, places)
     # Save adjacency matrix to json
     saveGraph(websitePath + prefix + '-graph.json', A, faceClusters, names)
