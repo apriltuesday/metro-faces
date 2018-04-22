@@ -1,0 +1,8 @@
+{ "nodes": [
+{"name": "April Shen", "group": [1, 2, 3, 4, 5, 6, 7, 8]},
+{"name": "Renee Setter", "group": [1]}],
+"links": [
+{"source": 0,  "target": 0, "value": 407.0},
+{"source": 0,  "target": 1, "value": 2.0},
+{"source": 1,  "target": 0, "value": 2.0},
+{"source": 1,  "target": 1, "value": 11.0}] }

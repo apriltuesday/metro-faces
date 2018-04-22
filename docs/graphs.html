@@ -1,0 +1,68 @@
+<!-- New version by April Shen april@cs.uw.edu -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Social Graphs of Photos</title>
+    <script type="text/javascript" src="d3.v3.js"></script>
+    <script type="text/javascript" src="social-map.js"></script>
+    <script type="text/javascript" src="metro.js"></script>
+    <script src="/pico/client.js"></script>
+<!--    <script>
+      pico.load("main");
+    </script> -->
+<style>
+
+.node {
+  stroke: #fff;
+  stroke-width: 1.5px;
+}
+
+.link {
+  stroke: #999;
+  stroke-opacity: .6;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: black;
+  stroke-width: 1.5px;
+  shape-rendering: crispEdges;
+}
+
+.axis text {
+  font-family: sans-serif;
+  font-size: 11px;
+}
+
+</style>
+<body>
+
+  <table cellspacing="10">
+  </table>
+
+<script>
+
+  var prefix = "files/6-3-14_new"; //"newTest"; //
+  var numTimes = 26; //11; //7;
+
+  var color = d3.scale.category10();
+
+    // make table
+    var tab = d3.select("table");
+    var graphs = tab.append("tr");
+    var names = tab.append("tr");
+
+    graphs.append("td")
+      .attr("id", "social-graph");
+    names.append("td")
+      .attr("id", "show-names");
+
+    // add content
+    socialMap(prefix, numTimes, 200, color, d3.select("#social-graph"));
+    
+</script>
+
+  </body>
+</html>

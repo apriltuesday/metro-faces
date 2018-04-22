@@ -1,0 +1,79 @@
+<!-- New version by April Shen april@cs.uw.edu -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Social Face Graphs</title>
+    <script type="text/javascript" src="d3.v3.js"></script>
+    <script type="text/javascript" src="social-faces.js"></script>
+    <script type="text/javascript" src="social.js"></script>
+    <script type="text/javascript" src="metro.js"></script>
+    <script src="/pico/client.js"></script>
+<!--    <script>
+      pico.load("main");
+    </script> -->
+<style>
+
+.node {
+  stroke: #fff;
+  stroke-width: 1.5px;
+}
+
+.link {
+  stroke: #999;
+  stroke-opacity: .6;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: black;
+  stroke-width: 1.5px;
+  shape-rendering: crispEdges;
+}
+
+.axis text {
+  font-family: sans-serif;
+  font-size: 11px;
+}
+
+</style>
+<body>
+
+  <table cellspacing="10">
+  </table>
+
+<script>
+
+  var numTimes = 10;
+
+  var color = d3.scale.ordinal()
+    .domain([/*0,*/1,2,3,4,5,6,7,8,9,10])
+    .range([/*"#000000",*/ "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]);
+
+    // make table
+    var tab = d3.select("table");
+    var faces = tab.append("tr");
+    var graphs = tab.append("tr");
+    var names = tab.append("tr");
+
+  for (var i = 0; i < numTimes; i++) {
+    var graphfile = "files/newTest" + i + "-graph.json";
+    graphs.append("td")
+      .attr("id", "social-graph" + i);
+    names.append("td")
+      .attr("id", "show-names" + i);
+    // add regular graph content
+    social(graphfile, i, 200, color, d3.select("#social-graph" + i));
+		  
+    graphfile = "files/5-12-14_test" + i + "-graph.json";
+    faces.append("td")
+      .attr("id", "face-graph" + i);
+    // add face graph content
+    socialFaces(graphfile, i, 800, color, d3.select("#face-graph" + i));
+}
+    
+</script>
+
+  </body>
+</html>

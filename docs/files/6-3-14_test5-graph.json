@@ -1,0 +1,14 @@
+{ "nodes": [
+{"name": "April Shen", "group": [1, 2, 3, 4, 5]},
+{"name": "Tessa Cannon", "group": [1]},
+{"name": "Bailey Karfelt", "group": [1]}],
+"links": [
+{"source": 0,  "target": 0, "value": 407.0},
+{"source": 0,  "target": 1, "value": 9.0},
+{"source": 0,  "target": 2, "value": 10.0},
+{"source": 1,  "target": 0, "value": 9.0},
+{"source": 1,  "target": 1, "value": 22.0},
+{"source": 1,  "target": 2, "value": 16.0},
+{"source": 2,  "target": 0, "value": 10.0},
+{"source": 2,  "target": 1, "value": 16.0},
+{"source": 2,  "target": 2, "value": 25.0}] }

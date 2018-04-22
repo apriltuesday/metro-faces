@@ -1,0 +1,83 @@
+<!-- New version by April Shen april@cs.uw.edu -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Metro Maps of Photos</title>
+    <script type="text/javascript" src="d3.v3.js"></script>
+    <script type="text/javascript" src="social.js"></script>
+    <script type="text/javascript" src="metro.js"></script>
+    <script src="/pico/client.js"></script>
+<!--    <script>
+      pico.load("main");
+    </script> -->
+<style>
+
+.node {
+  stroke: #fff;
+  stroke-width: 1.5px;
+}
+
+.link {
+  stroke: #999;
+  stroke-opacity: .6;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: black;
+  stroke-width: 1.5px;
+  shape-rendering: crispEdges;
+}
+
+.axis text {
+  font-family: sans-serif;
+  font-size: 11px;
+}
+
+</style>
+<body>
+
+  <table cellspacing="10">
+  </table>
+
+<script>
+
+  var prefix = "files/5-27-14_test";
+  var mapfile = prefix + "-map.json";
+  var graphfile = prefix + "-graph.json";
+
+  // make the initial map
+  // only do this if we don't already have one....
+//  main.mapFromParams(prefix, [], [], [], []);
+
+    // make table
+    var tab = d3.select("table");
+    var row = tab.append("tr");
+    row.append("td")
+      .attr("id", "metro-map");
+    row.append("td")
+      .attr("id", "show-image")
+      .style("width", 600 + "px");
+    row = tab.append("tr")
+    row.append("td")
+      .attr("id", "social-graph");
+    row.append("td")
+      .attr("id", "show-names")
+      .style("width", 100 + "px");
+
+//  var color = d3.scale.category20();
+    var color = d3.scale.ordinal()
+  .domain([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
+  .range(["#1f77b4", "#aec7e8", "#ff7f0e", "#ffbb78", "#2ca02c", "#98df8a", "#d62728", "#ff9896", "#9467bd", "#c5b0d5", "#8c564b", "#c49c94", "#e377c2", "#f7b6d2", "#7f7f7f", "#c7c7c7", "#bcbd22", "#dbdb8d", "#17becf", "#9edae5"]);
+//	.range(["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]);
+
+    // add content
+    metro(mapfile, color, d3.select("#metro-map"));
+    social(graphfile, color, d3.select("#social-graph"));
+    
+</script>
+
+  </body>
+</html>

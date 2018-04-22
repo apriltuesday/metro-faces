@@ -1,0 +1,12 @@
+{ "nodes": [
+{"name": "April Shen", "group": [1, 2, 3, 4, 5, 6, 7, 8]},
+{"name": "Nick Maschinot", "group": [1]},
+{"name": "Shaoping Hu", "group": [2]}],
+"links": [
+{"source": 0,  "target": 0, "value": 407.0},
+{"source": 0,  "target": 1, "value": 43.0},
+{"source": 0,  "target": 2, "value": 8.0},
+{"source": 1,  "target": 0, "value": 43.0},
+{"source": 1,  "target": 1, "value": 98.0},
+{"source": 2,  "target": 0, "value": 8.0},
+{"source": 2,  "target": 2, "value": 15.0}] }
